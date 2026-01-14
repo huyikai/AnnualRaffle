@@ -115,7 +115,10 @@ const { running, showRes, resArr, category, toggleDraw, stopDraw, closeResult } 
 const { enableAudio } = useAudio();
 
 // 默认头像路径，使用 BASE_URL 确保在不同部署环境下都能正确访问
-const defaultAvatarUrl = import.meta.env.BASE_URL + 'default-avatar.png';
+// BASE_URL 可能是 '/' 或 '/AnnualRaffle'，需要确保路径正确拼接
+const defaultAvatarUrl = (import.meta.env.BASE_URL.endsWith('/') 
+  ? import.meta.env.BASE_URL 
+  : import.meta.env.BASE_URL + '/') + 'default-avatar.png';
 
 const showConfig = ref(false);
 const showResult = ref(false);
