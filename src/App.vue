@@ -62,7 +62,7 @@
               @contextmenu.prevent
             />
             <span class="resname text-2xl leading-6 text-[#3d3d3d] text-center">
-              {{ store.list.find((d: { key: number; name: string }) => d.key === item)?.name }}
+              {{ store.list.find((d) => d.key === item)?.name }}
             </span>
           </div>
         </div>

@@ -11,5 +11,8 @@ export default defineConfig({
     }
   },
   base: process.env.NODE_ENV === 'production' ? '/AnnualRaffle' : '/',
+  build: {
+    target: 'es2022', // 支持 top-level await
+  },
 })
 

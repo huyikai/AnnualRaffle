@@ -30,7 +30,7 @@
           :key="j"
           :data-res="data"
         >
-          {{ userList.find((item: { key: number; name: string }) => item.key === data)?.name || `用户${data}` }}
+          {{ userList.find((item) => item.key === data)?.name || `用户${data}` }}
         </span>
       </span>
     </div>
