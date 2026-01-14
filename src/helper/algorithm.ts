@@ -49,13 +49,13 @@ interface LotteryStore {
  * 单次抽奖
  * @param config 抽奖配置
  * @param store 抽奖 store
- * @param luckyExclude 幸运奖排除名单
+ * @param excludedUsers 全局排除名单（适用于所有奖项）
  * @returns 中奖用户 key 数组
  */
 export function annualRaffleHandler(
   config: LotteryConfig,
   store: LotteryStore,
-  luckyExclude: Array<{ key: number; name: string }> = []
+  excludedUsers: Array<{ key: number; name: string }> = []
 ): number[] {
   const { won = [], num, category } = config;
   
@@ -66,10 +66,8 @@ export function annualRaffleHandler(
   won.forEach(key => wonSet.add(key));
   Object.values(store.result).flat().forEach(key => wonSet.add(key));
   
-  // 如果是幸运奖，添加排除名单
-  if (category?.includes('lucky')) {
-    luckyExclude.forEach(item => wonSet.add(item.key));
-  }
+  // 添加全局排除名单（适用于所有奖项）
+  excludedUsers.forEach(item => wonSet.add(item.key));
   
   // 检查是否有预设名单
   if (category) {

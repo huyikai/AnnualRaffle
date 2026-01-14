@@ -10,22 +10,22 @@
  */
 
 import type { UserItem } from './user.example';
-import { user as exampleUser, luckyExclude as exampleLuckyExclude } from './user.example';
+import { user as exampleUser, excludedUsers as exampleExcludedUsers } from './user.example';
 
 // 使用 top-level await 来同步等待动态导入完成
 let user: UserItem[];
-let luckyExclude: UserItem[];
+let excludedUsers: UserItem[];
 
 try {
   const userModule = await import('./user');
   user = userModule.user;
-  luckyExclude = userModule.luckyExclude || exampleLuckyExclude;
+  excludedUsers = userModule.excludedUsers || exampleExcludedUsers;
 } catch (error) {
   // 如果 user.ts 不存在或导入失败，使用示例数据
   console.log('user.ts 文件不存在，使用 user.example.ts 作为默认配置');
   user = exampleUser;
-  luckyExclude = exampleLuckyExclude;
+  excludedUsers = exampleExcludedUsers;
 }
 
-export { user, luckyExclude };
+export { user, excludedUsers };
 export type { UserItem };

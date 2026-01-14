@@ -95,7 +95,7 @@ import {
   conversionCategoryName,
   listField
 } from '@/helper/index';
-import { user, luckyExclude } from '@/config/userLoader';
+import { user, excludedUsers } from '@/config/userLoader';
 import { lottery, config } from '@/config/lottery';
 import { useLotteryStore } from '@/stores/lottery';
 import bgImage from '@/assets/bg.jpg';
@@ -111,7 +111,7 @@ import { annualRaffleHandler } from '@/helper/algorithm';
 
 const store = useLotteryStore();
 const { startTagCanvas, reloadTagCanvas, handleResize, initTagCanvas } = useTagCanvas();
-const { running, showRes, resArr, category, toggleDraw, stopDraw, closeResult } = useLottery(luckyExclude);
+const { running, showRes, resArr, category, toggleDraw, stopDraw, closeResult } = useLottery(excludedUsers);
 const { enableAudio } = useAudio();
 
 const showConfig = ref(false);
@@ -140,7 +140,7 @@ const datas = computed(() => {
     // 计算可用的用户数量（排除已中奖和排除名单）
     const wonSet = new Set<number>();
     Object.values(store.result).flat().forEach(key => wonSet.add(key));
-    luckyExclude.forEach(item => wonSet.add(item.key));
+    excludedUsers.forEach(item => wonSet.add(item.key));
     
     const availableUsers = store.list
       .map(item => item.key)
@@ -163,7 +163,7 @@ const datas = computed(() => {
         list: store.list,
         config: store.config
       },
-      luckyExclude
+      excludedUsers
     );
     
     const randomShowDatas = randomShowNums.map(item => {

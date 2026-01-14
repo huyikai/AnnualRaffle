@@ -174,10 +174,10 @@ export const user: UserItem[] = [
 ];
 
 /**
- * 排除抽奖的用户列表（示例）
- * 这些用户将不会参与抽奖
+ * 排除抽奖的用户列表（示例，适用于所有奖项）
+ * 这些用户将不会参与任何奖项的抽奖
  */
-export const luckyExclude: UserItem[] = [
+export const excludedUsers: UserItem[] = [
   { key: 1001, name: '张三' },
   { key: 1002, name: '李四' },
   { key: 1003, name: '王五' }

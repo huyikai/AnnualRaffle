@@ -15,7 +15,7 @@ import { useAudio } from './useAudio';
 /**
  * 使用抽奖功能的组合式函数
  */
-export function useLottery(luckyExclude: UserItem[] = []) {
+export function useLottery(excludedUsers: UserItem[] = []) {
   const store = useLotteryStore();
   const { setSpeed, reloadTagCanvas, getNormalSpeed } = useTagCanvas();
   const { audioEnabled, enableAudio, playBeginSound } = useAudio();
@@ -70,7 +70,7 @@ export function useLottery(luckyExclude: UserItem[] = []) {
           list: store.list,
           config: store.config
         },
-        luckyExclude
+        excludedUsers
       );
       
       // 只有在抽奖成功后才更新状态
