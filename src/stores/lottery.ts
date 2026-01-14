@@ -9,7 +9,7 @@ import {
 } from '@/helper/index';
 import type { LotteryConfigType, ResultType } from '@/config/lottery';
 import { defaultConfig, defaultResult, getLotteryCount, getLotteryPreset } from '@/config/lottery';
-import type { UserItem } from '@/config/user';
+import type { UserItem } from '@/config/userLoader';
 import type { PhotoItem } from '@/helper/db';
 import type { NewLotteryItem } from '@/types';
 

@@ -31,9 +31,10 @@
             <img
               v-if="item.key"
               :src="`user/${item.key}.jpg`"
+              @error="(e) => { const img = e.target as HTMLImageElement; if (img && img.src !== '/default-avatar.png') img.src = '/default-avatar.png'; }"
               class="object-contain rounded-full"
               :width="50"
-              :height="62"
+              :height="50"
             />
             <span>{{ item.name }}</span>
           </a>
@@ -55,7 +56,8 @@
             <img
               v-if="item"
               :src="`user/${item}.jpg`"
-              class="block object-contain w-[125px] h-[155px]"
+              @error="(e) => { const img = e.target as HTMLImageElement; if (img && img.src !== '/default-avatar.png') img.src = '/default-avatar.png'; }"
+              class="block object-contain w-[125px] h-[125px]"
               draggable="false"
               @contextmenu.prevent
             />
@@ -93,14 +95,13 @@ import {
   conversionCategoryName,
   listField
 } from '@/helper/index';
-import { user } from '@/config/user';
+import { user, luckyExclude } from '@/config/userLoader';
 import { lottery, config } from '@/config/lottery';
 import { useLotteryStore } from '@/stores/lottery';
-import { luckyExclude } from '@/config/user';
 import bgImage from '@/assets/bg.jpg';
 import type { LotteryForm, NewLotteryItem } from '@/types';
 import type { ResultType } from '@/config/lottery';
-import type { UserItem } from '@/config/user';
+import type { UserItem } from '@/config/userLoader';
 import { FONT_SIZE_CONFIG, TAG_CANVAS_CONFIG } from '@/constants';
 import type { LotteryConfigType } from '@/config/lottery';
 import { useTagCanvas } from '@/composables/useTagCanvas';

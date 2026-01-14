@@ -84,6 +84,16 @@ pnpm install
 pnpm dev
 ```
 
+### 快速上手
+
+启动项目后，你可以直接使用示例数据进行测试，无需任何配置！
+
+**快速上手三步：**
+
+1. 启动项目 → 打开浏览器即可测试（使用示例数据）
+2. 配置用户数据（可选）→ 详见下方"使用指南"
+3. 添加用户照片（可选）→ 详见下方"使用指南"
+
 ### 构建生产版本
 
 ```bash
@@ -98,27 +108,27 @@ pnpm preview
 
 ## 使用指南
 
-### 1. 配置用户数据
+### 1. 配置用户数据（可选）
+
+如果不配置，系统会自动使用示例数据。
+
+**步骤**：
 
 1. 复制 `src/config/user.example.ts` 为 `src/config/user.ts`
-2. 在 `user` 数组中添加用户数据：
+2. 在 `user.ts` 中修改用户列表：
 
-   ```typescript
-   export const user: UserItem[] = [
-     { key: 1001, name: '张三' },
-     { key: 1002, name: '李四' },
-     { key: 1003, name: '王五' },
-     // ... 更多用户
-   ];
-   ```
+```typescript
+export const user: UserItem[] = [
+  { key: 1001, name: '张三' },
+  { key: 1002, name: '李四' },
+  // ... 添加更多用户
+];
 
-3. （可选）在 `luckyExclude` 数组中添加需要排除的用户：
-
-   ```typescript
-   export const luckyExclude: UserItem[] = [
-     { key: 1001, name: '张三' }, // 不参与抽奖的用户
-   ];
-   ```
+// 排除用户（可选）
+export const luckyExclude: UserItem[] = [
+  { key: 1001, name: '张三' }, // 不参与抽奖的用户
+];
+```
 
 ### 2. 配置奖项和音频
 
@@ -136,28 +146,19 @@ pnpm preview
    - （可选）点击"增加奖项"添加自定义奖项
 4. 点击"保存配置"
 
-**预设名单说明**：
+**预设名单说明**：预设名单是可选的，格式为用户ID用逗号分隔（如：`1001,1002,1003`）。启用后优先使用预设用户，不足时自动补充随机抽取。
 
-- 预设名单是可选的，每个奖项都可以独立配置
-- 启用预设名单后，该奖项将优先使用预设的用户ID
-- 预设名单格式：用户ID用逗号分隔，例如 `1001,1002,1003`
-- 预设名单中的用户ID必须在用户列表中存在
-- 智能处理：
-  - 如果预设名单人数 ≥ 奖项人数：直接使用预设名单的前 N 个（N = 奖项人数）
-  - 如果预设名单人数 < 奖项人数：使用所有预设人员，剩余名额自动随机抽取
-  - 预设名单中已中奖的用户会自动跳过，不会重复中奖
+### 3. 添加用户照片（可选）
 
-### 3. 添加用户照片
+照片是可选的，没有照片时会自动显示默认头像。
 
-1. 将照片文件放入 `public/user/` 目录
-2. 文件命名格式：`{用户key}.jpg` 或 `{用户key}.png`
-3. 例如：用户 key 为 `1001`，则文件名为 `1001.jpg`
+**步骤**：
 
-**照片要求：**
+1. 准备照片文件（JPG/PNG，建议 20-50KB，160×160px）
+2. 放入 `public/user/` 目录，命名为 `{用户key}.jpg`（如：`1001.jpg`）
+3. 刷新页面即可看到照片
 
-- 格式：JPG 或 PNG
-- 大小：不超过 150KB，建议 20-50KB
-- 尺寸：建议 160×160px（正方形）
+**提示**：可以逐步添加，不需要一次性准备所有照片。
 
 ### 4. 开始抽奖
 
@@ -197,25 +198,16 @@ export const LOTTERY_ITEMS: LotteryItem[] = [
 
 ### 预设名单配置
 
-预设名单功能已集成到奖项配置中，每个奖项都可以选择是否使用预设名单：
-
-- **配置方式**：在"抽奖配置"界面中，每个奖项下方都有预设名单配置选项
-- **启用方式**：打开预设名单开关，输入用户ID（逗号分隔）
-- **数据结构**：预设名单存储在奖项配置中，格式为 `{ count: 1, preset: '1001,1002' }`
+在"抽奖配置"界面中，每个奖项下方都有预设名单配置选项。打开开关，输入用户ID（逗号分隔）即可。
 
 ### 照片目录
 
-用户照片存放在 `public/user/` 目录中：
-
-- 文件命名：`{用户key}.jpg` 或 `{用户key}.png`
-- 目录说明：详见 `public/user/README.md`
+用户照片存放在 `public/user/` 目录中，文件命名：`{用户key}.jpg` 或 `{用户key}.png`。详见 `public/user/README.md`。
 
 ### 数据存储
 
-- **配置和名单**：存储在 localStorage 中
+- **配置、名单、结果、音频设置**：存储在 localStorage 中
 - **照片文件**：存放在 `public/user/` 目录中，照片元数据存储在 IndexedDB 中
-- **抽奖结果**：存储在 localStorage 中
-- **音频设置**：静音状态和音量值存储在 localStorage 中，刷新后自动恢复
 
 ## 开发
 
@@ -289,26 +281,22 @@ AnnualRaffle/
 
 ## 注意事项
 
-1. **首次使用**：需要创建 `src/config/user.ts` 文件，可参考 `src/config/user.example.ts` 或 `src/config/user.template.ts`
-2. **配置管理**：所有业务配置统一在 `src/config/` 目录中管理，包括奖项配置和用户数据
-3. **预设名单**：预设名单已集成到奖项配置中，每个奖项都可以独立配置，无需单独管理
-4. **照片文件**：`public/user/` 目录中的照片文件不会被提交到 Git（已在 .gitignore 中配置）
-5. **数据存储**：
-   - 配置、名单、结果存储在 localStorage 中
-   - 照片元数据存储在 IndexedDB 中（数据库名：`AnnualRaffle`）
-6. **浏览器兼容性**：建议使用现代浏览器（Chrome、Firefox、Edge 等），需要支持 IndexedDB 和 HTML5 Audio API
-7. **音频功能**：
+1. **首次使用**：`src/config/user.ts` 文件是可选的，不创建会自动使用示例数据
+2. **照片文件**：`public/user/` 目录中的照片文件不会被提交到 Git
+3. **数据存储**：配置、名单、结果存储在 localStorage 中；照片元数据存储在 IndexedDB 中（数据库名：`AnnualRaffle`）
+4. **浏览器兼容性**：建议使用现代浏览器（Chrome、Firefox、Edge 等），需要支持 IndexedDB 和 HTML5 Audio API
+5. **音频功能**：
    - 系统支持背景音乐（`bg.mp3`）和开始音效（`begin.mp3`）
    - 音频文件位于 `src/assets/` 目录
    - 由于浏览器自动播放策略，音频需要在用户交互后启用（首次点击页面）
    - 音频设置（静音状态、音量）会自动保存到 localStorage
    - 默认状态为静音，默认音量为 50%
-8. **数据备份**：重要数据建议定期备份，可通过浏览器开发者工具导出：
+6. **数据备份**：重要数据建议定期备份，可通过浏览器开发者工具导出：
    - localStorage 数据：Application → Local Storage
    - IndexedDB 数据：Application → IndexedDB → AnnualRaffle
-9. **性能优化**：大量用户时建议压缩照片大小以提升加载速度
-10. **奖项配置**：修改奖项只需编辑 `src/config/lottery.ts` 中的 `LOTTERY_ITEMS` 数组，所有相关配置会自动更新
-11. **代码架构**：项目采用 Vue 3 Composition API 和 Composables 模式，业务逻辑封装在 `composables/` 目录中
+7. **性能优化**：大量用户时建议压缩照片大小以提升加载速度
+8. **奖项配置**：修改奖项只需编辑 `src/config/lottery.ts` 中的 `LOTTERY_ITEMS` 数组，所有相关配置会自动更新
+9. **代码架构**：项目采用 Vue 3 Composition API 和 Composables 模式，业务逻辑封装在 `composables/` 目录中
 
 ## 许可证
 

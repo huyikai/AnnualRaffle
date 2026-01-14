@@ -7,7 +7,7 @@ import { ref, computed, nextTick } from 'vue';
 import { annualRaffleHandler } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import type { LotteryForm } from '@/types';
-import type { UserItem } from '@/config/user';
+import type { UserItem } from '@/config/userLoader';
 import { LOTTERY_MODE, TAG_CANVAS_CONFIG } from '@/constants';
 import { useTagCanvas } from './useTagCanvas';
 import { useAudio } from './useAudio';

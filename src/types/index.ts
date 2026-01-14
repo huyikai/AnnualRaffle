@@ -2,7 +2,7 @@
  * 统一类型定义文件
  */
 
-import type { UserItem } from '@/config/user';
+import type { UserItem } from '@/config/userLoader';
 import type { LotteryConfigType, ResultType } from '@/config/lottery';
 
 /**
