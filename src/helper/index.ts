@@ -77,6 +77,8 @@ export const configField = 'config'; // 配置数据
 export const resultField = 'result'; // 抽奖结果
 export const newLotteryField = 'newLottery'; // 新增奖项
 export const listField = 'list'; // 名单
+export const audioMutedField = 'audioMuted'; // 音频静音状态
+export const audioVolumeField = 'audioVolume'; // 音频音量值
 
 /**
  * 转换奖项分类名称

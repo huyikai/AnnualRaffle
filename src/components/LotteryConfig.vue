@@ -6,19 +6,41 @@
     class="c-LotteryConfig"
   >
     <template #header>
-      <div class="c-LotteryConfigtitle flex items-center">
-        <span class="text-base mr-5">抽奖配置</span>
-        <el-button size="small" @click="addLottery">增加奖项</el-button>
-        <el-button size="small" type="primary" @click="onSubmit"
-          >保存配置</el-button
-        >
-        <el-button size="small" @click="dialogVisible = false"
-          >取消</el-button
-        >
+      <div class="c-LotteryConfigtitle">
+        <span class="text-xl font-bold">抽奖配置</span>
       </div>
     </template>
     <div class="container h-full overflow-y-auto px-2.5">
-      <el-form ref="formRef" :model="form" size="small">
+      <!-- 音频设置卡片 -->
+      <div class="audio-settings-card">
+        <div class="audio-settings-header">
+          <span class="audio-settings-title">音频设置</span>
+        </div>
+        <div class="audio-settings-content">
+          <el-button
+            size="small"
+            @click="handleToggleMute"
+            class="mute-button"
+          >
+            {{ isMuted ? '取消静音' : '静音' }}
+          </el-button>
+          <div class="volume-control">
+            <span class="volume-label">音量：</span>
+            <el-slider
+              :model-value="volume"
+              :min="0"
+              :max="100"
+              :show-tooltip="true"
+              :format-tooltip="(val: number) => `${val}%`"
+              class="volume-slider"
+              @input="handleVolumeChange"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 奖项配置表单 -->
+      <el-form ref="formRef" :model="form" size="small" class="lottery-form">
         <template v-for="newitem in storeNewLottery" :key="newitem.key">
           <el-form-item :label="newitem.name">
             <el-input
@@ -47,6 +69,17 @@
           </el-form-item>
         </template>
       </el-form>
+
+      <!-- 操作按钮区域 -->
+      <div class="action-buttons">
+        <el-button size="small" @click="addLottery">增加奖项</el-button>
+        <el-button size="small" type="primary" @click="onSubmit"
+          >保存配置</el-button
+        >
+        <el-button size="small" @click="dialogVisible = false"
+          >取消</el-button
+        >
+      </div>
     </div>
 
     <el-dialog
@@ -77,6 +110,7 @@ import { ElMessage } from 'element-plus';
 import { setData, configField } from '@/helper/index';
 import { randomNum } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
+import { useAudio } from '@/composables/useAudio';
 import type { LotteryItemConfig } from '@/config/lottery';
 import { getLotteryPreset } from '@/config/lottery';
 
@@ -91,6 +125,7 @@ const emit = defineEmits<{
 }>();
 
 const store = useLotteryStore();
+const { isMuted, volume, audioEnabled, enableAudio, toggleMute, setVolume } = useAudio();
 
 const dialogVisible = computed({
   get: () => props.visible,
@@ -194,6 +229,18 @@ const addHandler = () => {
   newLottery.name = '';
   showAddLottery.value = false;
 };
+
+const handleToggleMute = () => {
+  // 启用音频（如果尚未启用）
+  if (!audioEnabled.value) {
+    enableAudio();
+  }
+  toggleMute();
+};
+
+const handleVolumeChange = (val: number) => {
+  setVolume(val);
+};
 </script>
 
 <style scoped>
@@ -203,6 +250,59 @@ const addHandler = () => {
 .dialog-showAddLottery :deep(.el-dialog) {
   height: 186px;
 }
+
+/* 音频设置卡片样式 */
+.audio-settings-card {
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border: 1px solid #e4e7ed;
+}
+
+.audio-settings-header {
+  margin-bottom: 8px;
+}
+
+.audio-settings-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.audio-settings-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mute-button {
+  flex-shrink: 0;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.volume-label {
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+}
+
+.volume-slider {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* 奖项配置表单样式 */
+.lottery-form {
+  margin-top: 0;
+}
+
 .preset-item {
   margin-top: -10px;
   margin-bottom: 10px;
@@ -210,5 +310,15 @@ const addHandler = () => {
 .preset-item :deep(.el-form-item__label) {
   font-size: 12px;
   color: #909399;
+}
+
+/* 操作按钮区域样式 */
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e4e7ed;
 }
 </style>

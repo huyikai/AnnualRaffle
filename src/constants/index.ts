@@ -94,3 +94,17 @@ export const DEFAULT_CONFIG = {
   /** 默认排除已中奖 */
   DEFAULT_ALLIN: false
 } as const;
+
+/**
+ * 音频配置常量
+ */
+export const AUDIO_CONFIG = {
+  /** 默认音量 */
+  DEFAULT_VOLUME: 50,
+  /** 默认静音状态 */
+  DEFAULT_MUTED: true,
+  /** localStorage 存储键名 - 静音状态 */
+  STORAGE_KEY_MUTED: 'audioMuted',
+  /** localStorage 存储键名 - 音量值 */
+  STORAGE_KEY_VOLUME: 'audioVolume'
+} as const;

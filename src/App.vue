@@ -105,11 +105,13 @@ import { FONT_SIZE_CONFIG, TAG_CANVAS_CONFIG } from '@/constants';
 import type { LotteryConfigType } from '@/config/lottery';
 import { useTagCanvas } from '@/composables/useTagCanvas';
 import { useLottery } from '@/composables/useLottery';
+import { useAudio } from '@/composables/useAudio';
 import { annualRaffleHandler } from '@/helper/algorithm';
 
 const store = useLotteryStore();
 const { startTagCanvas, reloadTagCanvas, handleResize, initTagCanvas } = useTagCanvas();
 const { running, showRes, resArr, category, toggleDraw, stopDraw, closeResult } = useLottery(luckyExclude);
+const { enableAudio } = useAudio();
 
 const showConfig = ref(false);
 const showResult = ref(false);
@@ -274,6 +276,15 @@ onMounted(() => {
     initTagCanvas(() => store.list.length > 0 && datas.value.length > 0);
   });
   window.addEventListener('resize', handleResize);
+
+  // 添加首次点击事件监听器，用于启用音频（处理浏览器自动播放策略）
+  const handleFirstClick = () => {
+    enableAudio();
+    document.removeEventListener('click', handleFirstClick);
+    document.removeEventListener('touchstart', handleFirstClick);
+  };
+  document.addEventListener('click', handleFirstClick, { once: true });
+  document.addEventListener('touchstart', handleFirstClick, { once: true });
 });
 
 onBeforeUnmount(() => {

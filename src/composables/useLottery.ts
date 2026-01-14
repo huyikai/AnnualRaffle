@@ -10,6 +10,7 @@ import type { LotteryForm } from '@/types';
 import type { UserItem } from '@/config/user';
 import { LOTTERY_MODE, TAG_CANVAS_CONFIG } from '@/constants';
 import { useTagCanvas } from './useTagCanvas';
+import { useAudio } from './useAudio';
 
 /**
  * 使用抽奖功能的组合式函数
@@ -17,6 +18,7 @@ import { useTagCanvas } from './useTagCanvas';
 export function useLottery(luckyExclude: UserItem[] = []) {
   const store = useLotteryStore();
   const { setSpeed, reloadTagCanvas, getNormalSpeed } = useTagCanvas();
+  const { audioEnabled, enableAudio, playBeginSound } = useAudio();
 
   const running = ref(false);
   const showRes = ref(false);
@@ -88,6 +90,14 @@ export function useLottery(luckyExclude: UserItem[] = []) {
         [formCategory]: oldRes.concat(resArrResult)
       };
       store.setResult(data);
+      
+      // 启用音频（如果尚未启用）
+      if (!audioEnabled.value) {
+        enableAudio();
+      }
+      // 播放开始音效
+      playBeginSound();
+      
       return true;
     } catch (error) {
       console.error('抽奖失败:', error);
