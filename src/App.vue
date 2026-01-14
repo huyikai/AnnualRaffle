@@ -121,6 +121,9 @@ const baseUrl = import.meta.env.BASE_URL.endsWith('/')
   : import.meta.env.BASE_URL + '/';
 const defaultAvatarUrl = baseUrl + 'default-avatar.png';
 
+// 设置全局变量，供 TagCanvas 使用
+(window as any).__defaultAvatarUrl = defaultAvatarUrl;
+
 // 获取用户头像 URL
 const getUserAvatarUrl = (userId: number | string): string => {
   return `${baseUrl}user/${userId}.jpg`;

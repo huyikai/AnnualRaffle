@@ -745,10 +745,31 @@ const m: Record<string, string> = {
 			}
 			// 检查图像是否加载成功（避免 broken 状态的图像）
 			if (aH.naturalWidth === 0 || aH.naturalHeight === 0) {
-					// 图像加载失败，清除图像引用
-					if (aP) {
-							aP.image = null;
-							aP.fimage = null;
+					// 图像加载失败，尝试使用默认头像
+					var defaultAvatar = (window as any).__defaultAvatarUrl;
+					if (defaultAvatar && aH.src !== defaultAvatar) {
+							var defaultImg = new Image;
+							defaultImg.onerror = function() {
+									// 如果默认头像也加载失败，清除图像引用
+									if (aP) {
+											aP.image = null;
+											aP.fimage = null;
+									}
+							};
+							defaultImg.onload = function() {
+									// 默认头像加载成功，替换图像
+									if (aP) {
+											aP.image = defaultImg;
+											aP.fimage = defaultImg;
+									}
+							};
+							defaultImg.src = defaultAvatar;
+					} else {
+							// 如果默认头像也加载失败，清除图像引用
+							if (aP) {
+									aP.image = null;
+									aP.fimage = null;
+							}
 					}
 					return;
 			}
@@ -1790,11 +1811,20 @@ const m: Record<string, string> = {
 					aO = aL.getElementsByTagName("img");
 					if (aO.length) {
 							aJ = new Image;
-							// 添加错误处理，当图像加载失败时清除图像引用
+							// 添加错误处理，当图像加载失败时尝试使用默认头像
+							var errorCount = 0;
 							aJ.onerror = function() {
-									if (aP) {
-											aP.image = null;
-											aP.fimage = null;
+									errorCount++;
+									// 尝试使用默认头像（只尝试一次）
+									var defaultAvatar = (window as any).__defaultAvatarUrl;
+									if (defaultAvatar && aJ.src !== defaultAvatar && errorCount === 1) {
+											aJ.src = defaultAvatar;
+									} else {
+											// 如果默认头像也加载失败，清除图像引用
+											if (aP) {
+													aP.image = null;
+													aP.fimage = null;
+											}
 									}
 							};
 							aJ.src = aO[0].src;
