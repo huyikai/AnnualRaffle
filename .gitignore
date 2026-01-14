@@ -1,0 +1,33 @@
+.DS_Store
+node_modules
+/dist
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+config.js
+test.js
+
+# 敏感数据文件 - 不要提交到 Git
+# 用户数据文件（包含真实姓名和ID）
+src/assets/user.ts
+
+# 用户照片目录（包含真实照片）
+public/user/*.jpg
+public/user/*.png
+public/user/*.JPG
+public/user/*.PNG
