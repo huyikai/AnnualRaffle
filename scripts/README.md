@@ -30,6 +30,7 @@ pnpm install @imgly/background-removal-node
 将需要处理的图片文件放入 `scripts/input/` 目录。
 
 支持的图片格式：
+
 - `.jpg` / `.jpeg`
 - `.png`
 - `.webp`
@@ -85,17 +86,17 @@ CROP_MODE=smart pnpm run process-images
 
 ```typescript
 export const defaultConfig: ImageProcessorConfig = {
-  processingMode: 'ai',          // 'fast' | 'ai'
+  processingMode: 'ai', // 'fast' | 'ai'
   targetSize: {
     width: 160,
-    height: 160
+    height: 160,
   },
-  outputFormat: 'jpg',           // 'jpg' | 'png'
-  backgroundColor: '#962520',    // hex 颜色，如 '#FFFFFF' 或 'rgb(255,255,255)'
-  inputDir: 'scripts/input',     // 输入目录
-  outputDir: 'scripts/output',   // 输出目录
-  quality: 100,                  // JPG 质量（1-100）
-  cropMode: 'smart'              // 'center' | 'smart'
+  outputFormat: 'jpg', // 'jpg' | 'png'
+  backgroundColor: '#962520', // hex 颜色，如 '#FFFFFF' 或 'rgb(255,255,255)'
+  inputDir: 'scripts/input', // 输入目录
+  outputDir: 'scripts/output', // 输出目录
+  quality: 100, // JPG 质量（1-100）
+  cropMode: 'smart', // 'center' | 'smart'
 };
 ```
 
@@ -113,6 +114,7 @@ export const defaultConfig: ImageProcessorConfig = {
   - 自动分析图片边缘像素来识别背景色
 
 **适用场景**：
+
 - 批量处理大量图片
 - 图片背景色相对单一
 - 对处理速度有要求
@@ -129,17 +131,20 @@ export const defaultConfig: ImageProcessorConfig = {
   - 首次运行需要下载模型（需要网络连接）
 
 **适用场景**：
+
 - 图片背景复杂
 - 对抠图质量要求高
 - 图片数量较少
 
 ## 性能说明
 
-### 快速模式
+### 快速模式性能
+
 - 处理速度：<1秒/张
 - 50-200张图片：约1-3分钟
 
 ### AI模式
+
 - 处理速度：3-20秒/张
 - 50-200张图片：约4-66分钟
 
@@ -147,17 +152,17 @@ export const defaultConfig: ImageProcessorConfig = {
 
 为便于理解新版脚本相对早期版本的改进，这里简要列出几个核心实现要点（无需深入代码也能大致把握行为）：
 
-1. **快速模式抠图更智能**  
-   - 使用 LAB 色彩空间和 ΔE（颜色距离）做背景色判断，比简单 RGB 阈值更稳定。  
-   - 自动从四周边缘和四个角落采样背景颜色，自适应不同明暗程度的背景。  
+1. **快速模式抠图更智能**
+   - 使用 LAB 色彩空间和 ΔE（颜色距离）做背景色判断，比简单 RGB 阈值更稳定。
+   - 自动从四周边缘和四个角落采样背景颜色，自适应不同明暗程度的背景。
    - 对边缘区域做二次平滑处理，减少“毛边”和锯齿感。
 
-2. **AI 模式自动回退机制**  
-   - 首选使用 `@imgly/background-removal-node` 做高质量抠图。  
+2. **AI 模式自动回退机制**
+   - 首选使用 `@imgly/background-removal-node` 做高质量抠图。
    - 如果 AI 模型不可用或抠图失败，会自动回退到“快速模式 + 智能裁剪 + 背景合成”的完整流程，单张失败不会中断后续图片处理。
 
-3. **AI 模式下的头像排版优化**  
-   - 把抠好前景的头像按“带内边距”的方式排版到目标画布：上下留出适当空间，左右居中。  
+3. **AI 模式下的头像排版优化**
+   - 把抠好前景的头像按“带内边距”的方式排版到目标画布：上下留出适当空间，左右居中。
    - 重点保证头部不会被裁切，最终生成的头像在统一尺寸下也有比较统一的视觉布局。
 
 ## 注意事项
@@ -175,18 +180,20 @@ export const defaultConfig: ImageProcessorConfig = {
 
 如果使用AI模式但未安装依赖，脚本会提示：
 
-```
+```bash
 ⚠ 警告: AI增强模式需要安装 @imgly/background-removal-node
   运行: pnpm install @imgly/background-removal-node
 ```
 
 **解决方案**：
+
 - 安装依赖：`pnpm install @imgly/background-removal-node`
 - 或切换到快速模式：`PROCESSING_MODE=fast pnpm run process-images`
 
 ### 处理失败
 
 如果某张图片处理失败：
+
 - 检查图片文件是否损坏
 - 检查图片格式是否支持
 - 查看错误信息中的详细提示
@@ -194,6 +201,7 @@ export const defaultConfig: ImageProcessorConfig = {
 ### 快速模式效果不佳
 
 如果快速模式的抠图效果不理想：
+
 - 尝试使用AI模式获得更好的效果
 - 或者手动预处理图片，使背景色更单一
 
