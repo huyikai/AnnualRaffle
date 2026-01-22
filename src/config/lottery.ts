@@ -20,9 +20,9 @@ export interface LotteryItemConfig {
 export const LOTTERY_ITEMS: LotteryItem[] = [
   { key: 'firstPrize', name: '一等奖', defaultCount: 1 },
   { key: 'secondPrize', name: '二等奖', defaultCount: 2 },
-  { key: 'thirdPrize', name: '三等奖', defaultCount: 3 },
-  { key: 'luckyFirst', name: '幸运奖第一轮', defaultCount: 15 },
-  { key: 'luckySecond', name: '幸运奖第二轮', defaultCount: 15 },
+  { key: 'thirdPrize', name: '三等奖', defaultCount: 5 },
+  { key: 'luckyFirst', name: '幸运奖第一轮', defaultCount: 10 },
+  { key: 'luckySecond', name: '幸运奖第二轮', defaultCount: 10 },
 ];
 
 // 奖项配置类型定义

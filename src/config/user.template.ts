@@ -19,6 +19,8 @@
 export interface UserItem {
   key: number;
   name: string;
+  allowedPrizes?: string[];  // 可选：允许参加的奖项 key 列表。如果未设置或为空数组，表示可以参加所有奖项
+  // 示例：{ key: 2200030, name: '李微', allowedPrizes: ['luckyFirst', 'luckySecond'] }  // 只能参加幸运奖
 }
 
 /**

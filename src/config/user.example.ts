@@ -7,11 +7,14 @@
  * 数据结构说明：
  * - key: 用户唯一标识（数字）
  * - name: 用户姓名（字符串）
+ * - allowedPrizes: 可选，允许参加的奖项 key 列表。如果未设置或为空数组，表示可以参加所有奖项
  */
 
 export interface UserItem {
   key: number;
   name: string;
+  allowedPrizes?: string[];  // 可选：允许参加的奖项 key 列表。如果未设置或为空数组，表示可以参加所有奖项
+  // 示例：{ key: 2200030, name: '李微', allowedPrizes: ['luckyFirst', 'luckySecond'] }  // 只能参加幸运奖
 }
 
 /**
@@ -22,7 +25,7 @@ export const user: UserItem[] = [
   ...[
     { key: 1001, name: '张三' },
     { key: 1002, name: '李四' },
-    { key: 1003, name: '王五' },
+    { key: 1003, name: '王五', allowedPrizes: ['luckyFirst', 'luckySecond'] },  // 示例：只能参加幸运奖
     { key: 1004, name: '赵六' },
     { key: 1005, name: '钱七' },
     { key: 1006, name: '孙八' },

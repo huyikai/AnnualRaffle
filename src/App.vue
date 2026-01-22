@@ -33,8 +33,8 @@
               :src="getUserAvatarUrl(item.key)"
               @error="handleAvatarError"
               class="object-contain rounded-full"
-              :width="50"
-              :height="50"
+              :width="58"
+              :height="76"
             />
             <span>{{ item.name }}</span>
           </a>
