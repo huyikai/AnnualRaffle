@@ -4,6 +4,7 @@
     width="600px"
     class="c-Result"
     :append-to-body="true"
+    :z-index="10100"
   >
     <template #header>
       <div class="dialog-title">

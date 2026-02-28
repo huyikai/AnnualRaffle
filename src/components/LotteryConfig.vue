@@ -4,6 +4,7 @@
     :append-to-body="true"
     width="390px"
     class="c-LotteryConfig"
+    :z-index="10100"
   >
     <template #header>
       <div class="c-LotteryConfigtitle">
@@ -87,6 +88,7 @@
       :append-to-body="true"
       width="300px"
       class="dialog-showAddLottery"
+      :z-index="10200"
     >
       <template #header>
         <div class="add-title">增加奖项</div>
