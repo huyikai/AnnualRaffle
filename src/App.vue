@@ -108,34 +108,15 @@ import { useTagCanvas } from '@/composables/useTagCanvas';
 import { useLottery } from '@/composables/useLottery';
 import { useAudio } from '@/composables/useAudio';
 import { annualRaffleHandler } from '@/helper/algorithm';
+import { defaultAvatarUrl, getUserAvatarUrl, handleAvatarError } from '@/utils/avatar';
 
 const store = useLotteryStore();
 const { startTagCanvas, reloadTagCanvas, handleResize, initTagCanvas } = useTagCanvas();
 const { running, showRes, resArr, category, toggleDraw, stopDraw, closeResult } = useLottery(excludedUsers);
 const { enableAudio } = useAudio();
 
-// 默认头像路径，使用 BASE_URL 确保在不同部署环境下都能正确访问
-// BASE_URL 可能是 '/' 或 '/AnnualRaffle'，需要确保路径正确拼接
-const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
-  ? import.meta.env.BASE_URL 
-  : import.meta.env.BASE_URL + '/';
-const defaultAvatarUrl = baseUrl + 'default-avatar.png';
-
 // 设置全局变量，供 TagCanvas 使用
 (window as any).__defaultAvatarUrl = defaultAvatarUrl;
-
-// 获取用户头像 URL
-const getUserAvatarUrl = (userId: number | string): string => {
-  return `${baseUrl}user/${userId}.jpg`;
-};
-
-// 处理头像加载错误
-const handleAvatarError = (event: Event): void => {
-  const img = event.target as HTMLImageElement;
-  if (img && img.src !== defaultAvatarUrl) {
-    img.src = defaultAvatarUrl;
-  }
-};
 
 const showConfig = ref(false);
 const showResult = ref(false);

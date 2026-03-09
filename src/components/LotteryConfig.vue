@@ -58,13 +58,17 @@
                 v-model="presetEnabled[newitem.key]"
                 @change="handlePresetToggle(newitem.key)"
               />
-              <el-input
-                v-if="presetEnabled[newitem.key]"
-                type="text"
-                v-model="getItemConfig(newitem.key).preset"
-                placeholder="用户ID，逗号分隔"
-                :disabled="!presetEnabled[newitem.key]"
-              ></el-input>
+              <template v-if="presetEnabled[newitem.key]">
+                <el-button
+                  size="small"
+                  @click="openPresetSelect(newitem.key)"
+                >
+                  选择预设名单
+                </el-button>
+                <span v-if="getPresetIds(newitem.key).length" class="text-gray-500 text-xs">
+                  已选 {{ getPresetIds(newitem.key).length }} 人
+                </span>
+              </template>
               <span v-else class="text-gray-400 text-xs">未启用</span>
             </div>
           </el-form-item>
@@ -74,14 +78,17 @@
       <!-- 操作按钮区域 -->
       <div class="action-buttons">
         <el-button size="small" @click="addLottery">增加奖项</el-button>
-        <el-button size="small" type="primary" @click="onSubmit"
-          >保存配置</el-button
-        >
-        <el-button size="small" @click="dialogVisible = false"
-          >取消</el-button
-        >
+        <el-button size="small" type="primary" @click="onSubmit">完成</el-button>
       </div>
     </div>
+
+    <PresetSelectDialog
+      :key="editingPresetCategory ?? 'closed'"
+      v-model:visible="presetSelectVisible"
+      v-model:model-value="selectedPresetIds"
+      :category-key="editingPresetCategory ?? ''"
+      :user-list="store.list"
+    />
 
     <el-dialog
       v-model="showAddLottery"
@@ -108,13 +115,13 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue';
-import { ElMessage } from 'element-plus';
 import { setData, configField } from '@/helper/index';
 import { randomNum } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import { useAudio } from '@/composables/useAudio';
 import type { LotteryItemConfig } from '@/config/lottery';
 import { getLotteryPreset } from '@/config/lottery';
+import PresetSelectDialog from './PresetSelectDialog.vue';
 
 interface Props {
   visible: boolean;
@@ -151,18 +158,25 @@ const getItemConfig = (key: string): LotteryItemConfig => {
   return form.value[key] as LotteryItemConfig;
 };
 
-// 初始化预设名单启用状态
+// 初始化预设名单启用状态（preset 存在即视为启用，含空字符串）
 watch(
   () => [storeNewLottery.value, form.value],
   () => {
     storeNewLottery.value.forEach(item => {
-      const preset = getLotteryPreset(form.value, item.key);
-      presetEnabled[item.key] = !!preset;
+      const config = getItemConfig(item.key);
+      presetEnabled[item.key] = 'preset' in config;
       // 确保配置项格式正确
       getItemConfig(item.key);
     });
   },
   { immediate: true, deep: true }
+);
+
+// 监听 form 变更（含 count），即时持久化
+watch(
+  () => form.value,
+  (val) => setData(configField, val),
+  { deep: true }
 );
 
 const handlePresetToggle = (key: string) => {
@@ -176,10 +190,54 @@ const handlePresetToggle = (key: string) => {
       config.preset = '';
     }
   }
+  setData(configField, form.value);
 };
 
 const showAddLottery = ref(false);
 const newLottery = reactive({ name: '' });
+
+// 预设名单选择弹窗 - 每个奖项独立存储，避免相互影响
+const presetSelectVisible = ref(false);
+const editingPresetCategory = ref<string | null>(null);
+const presetByCategory = reactive<Record<string, number[]>>({});
+
+// 解析预设名单字符串为 ID 数组
+const getPresetIds = (key: string): number[] => {
+  const preset = getLotteryPreset(form.value, key);
+  if (!preset || !preset.trim()) return [];
+  return preset.split(',').map((item) => Number(item.trim())).filter(Boolean);
+};
+
+// 当前编辑奖项的已选 ID（供 PresetSelectDialog 使用）
+const selectedPresetIds = computed({
+  get: () => {
+    const key = editingPresetCategory.value;
+    return key ? (presetByCategory[key] ?? getPresetIds(key)) : [];
+  },
+  set: (val: number[]) => {
+    const key = editingPresetCategory.value;
+    if (key) {
+      presetByCategory[key] = [...val];
+      const config = getItemConfig(key);
+      config.preset = val.length ? val.join(',') : '';
+      // 实时持久化到 localStorage，避免刷新丢失
+      setData(configField, form.value);
+    }
+  }
+});
+
+const openPresetSelect = (categoryKey: string) => {
+  editingPresetCategory.value = categoryKey;
+  presetByCategory[categoryKey] = getPresetIds(categoryKey);
+  presetSelectVisible.value = true;
+};
+
+// 弹窗关闭时清理编辑状态
+watch(presetSelectVisible, (visible) => {
+  if (!visible) {
+    editingPresetCategory.value = null;
+  }
+});
 
 const formRef = ref();
 const newLotteryRef = ref();
@@ -196,12 +254,6 @@ const onSubmit = () => {
   setData(configField, form.value);
   store.setConfig(form.value);
   dialogVisible.value = false;
-
-  ElMessage({
-    message: '保存成功',
-    type: 'success'
-  });
-
   emit('resetconfig');
 };
 

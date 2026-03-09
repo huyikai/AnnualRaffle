@@ -52,7 +52,7 @@ interface LotteryStore {
  * @param prizeKey 奖项 key
  * @returns 是否可以参加
  */
-function canUserParticipate(user: UserItem, prizeKey: string | undefined): boolean {
+export function canUserParticipate(user: UserItem, prizeKey: string | undefined): boolean {
   // 如果没有指定奖项，允许参加
   if (!prizeKey) {
     return true;
