@@ -31,3 +31,8 @@ body {
   width: 100% !important;
   height: 100% !important;
 }
+
+/* 确保 MessageBox 显示在 Dialog 之上（Dialog 最高 z-index 为 10250） */
+.el-overlay.is-message-box {
+  z-index: 11000 !important;
+}

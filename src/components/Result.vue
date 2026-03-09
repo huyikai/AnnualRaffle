@@ -142,7 +142,8 @@ const deleteRes = (event: MouseEvent, row: ResultListItem) => {
 
 <style scoped>
 .c-Result :deep(.el-dialog__body) {
-  max-height: 500px;
+  max-height: 70vh;
+  min-height: 0;
   overflow-y: auto;
 }
 </style>
