@@ -91,8 +91,8 @@ export const DEFAULT_CONFIG = {
   DEFAULT_QTY: 1,
   /** 默认模式 */
   DEFAULT_MODE: 0,
-  /** 默认排除已中奖 */
-  DEFAULT_ALLIN: false
+  /** 默认全局排除已中奖人员 */
+  DEFAULT_EXCLUDE_WINNERS: true
 } as const;
 
 /**

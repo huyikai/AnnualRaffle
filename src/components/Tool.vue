@@ -175,8 +175,7 @@ const form = reactive<LotteryForm>({
   category: DEFAULT_CONFIG.DEFAULT_CATEGORY,
   mode: DEFAULT_CONFIG.DEFAULT_MODE as number,
   qty: DEFAULT_CONFIG.DEFAULT_QTY,
-  remain: 0,
-  allin: DEFAULT_CONFIG.DEFAULT_ALLIN
+  remain: 0
 });
 
 watch(showRemoveoptions, (v) => {

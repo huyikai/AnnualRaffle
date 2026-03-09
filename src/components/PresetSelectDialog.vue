@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="选择预设名单"
+    :title="title"
     :append-to-body="true"
     width="640px"
     :z-index="10250"
@@ -51,9 +51,12 @@ interface Props {
   modelValue: number[];
   categoryKey: string;
   userList: UserItem[];
+  title?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  title: '选择预设名单'
+});
 const emit = defineEmits<{
   'update:visible': [value: boolean];
   'update:modelValue': [value: number[]];

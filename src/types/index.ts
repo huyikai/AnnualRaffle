@@ -13,7 +13,6 @@ export interface LotteryForm {
   mode: number;
   qty: number;
   remain: number;
-  allin: boolean;
 }
 
 /**

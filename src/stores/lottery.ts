@@ -6,6 +6,7 @@ import {
   newLotteryField,
   listField,
   configField,
+  excludeWinnersField,
 } from '@/helper/index';
 import type { LotteryConfigType, ResultType } from '@/config/lottery';
 import { defaultConfig, defaultResult, getLotteryCount, getLotteryPreset } from '@/config/lottery';
@@ -50,6 +51,8 @@ export const useLotteryStore = defineStore('lottery', () => {
   const list = ref<UserItem[]>([]);
   /** 用户照片列表 */
   const photos = ref<PhotoItem[]>([]);
+  /** 全局排除已中奖人员 */
+  const excludeWinners = ref(true);
 
   // ========== Actions ==========
   /**
@@ -71,11 +74,20 @@ export const useLotteryStore = defineStore('lottery', () => {
   }
 
   /**
+   * 设置全局排除已中奖人员
+   */
+  function setExcludeWinners(value: boolean) {
+    excludeWinners.value = value;
+    setData(excludeWinnersField, value);
+  }
+
+  /**
    * 清除配置和新增奖项
    */
   function setClearConfig() {
     config.value = createDefaultConfig();
     newLottery.value = [];
+    excludeWinners.value = true;
   }
 
   /**
@@ -108,6 +120,7 @@ export const useLotteryStore = defineStore('lottery', () => {
     newLottery.value = [];
     list.value = [];
     photos.value = [];
+    excludeWinners.value = true;
   }
 
   /**
@@ -164,6 +177,7 @@ export const useLotteryStore = defineStore('lottery', () => {
     newLottery,
     list,
     photos,
+    excludeWinners,
     // Actions
     getCount,
     getPreset,
@@ -177,5 +191,6 @@ export const useLotteryStore = defineStore('lottery', () => {
     setNewLottery,
     setList,
     setPhotos,
+    setExcludeWinners,
   };
 });

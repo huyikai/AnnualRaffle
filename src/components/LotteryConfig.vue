@@ -40,39 +40,97 @@
         </div>
       </div>
 
-      <!-- 奖项配置表单 -->
-      <el-form ref="formRef" :model="form" size="small" class="lottery-form">
-        <template v-for="newitem in storeNewLottery" :key="newitem.key">
-          <el-form-item :label="newitem.name">
-            <el-input
-              type="number"
-              :min="0"
-              :step="1"
-              v-model.number="getItemConfig(newitem.key).count"
-              placeholder="请输入数量"
-            ></el-input>
-          </el-form-item>
-          <el-form-item :label="`${newitem.name}预设名单`" class="preset-item">
-            <div class="flex items-center gap-2">
-              <el-switch
-                v-model="presetEnabled[newitem.key]"
-                @change="handlePresetToggle(newitem.key)"
-              />
-              <template v-if="presetEnabled[newitem.key]">
-                <el-button
-                  size="small"
-                  @click="openPresetSelect(newitem.key)"
-                >
-                  选择预设名单
-                </el-button>
-                <span v-if="getPresetIds(newitem.key).length" class="text-gray-500 text-xs">
-                  已选 {{ getPresetIds(newitem.key).length }} 人
-                </span>
-              </template>
-              <span v-else class="text-gray-400 text-xs">未启用</span>
+      <!-- 抽奖设置卡片 -->
+      <div class="lottery-settings-card">
+        <div class="lottery-settings-header">
+          <span class="lottery-settings-title">抽奖设置</span>
+        </div>
+        <div class="lottery-settings-content">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-sm">排除已中奖人员</span>
+              <div class="text-gray-400 text-xs mt-0.5">开启后，已中奖人员默认不参与后续抽奖</div>
             </div>
-          </el-form-item>
-        </template>
+            <el-switch
+              :model-value="store.excludeWinners"
+              @change="(val: boolean) => store.setExcludeWinners(val)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 奖项配置 -->
+      <el-form ref="formRef" :model="form" size="small" class="lottery-form">
+        <div v-for="newitem in storeNewLottery" :key="newitem.key" class="category-card">
+          <div class="category-card-header">{{ newitem.name }}</div>
+          <div class="category-card-body">
+            <el-form-item label="数量">
+              <el-input
+                type="number"
+                :min="0"
+                :step="1"
+                v-model.number="getItemConfig(newitem.key).count"
+                placeholder="请输入数量"
+              ></el-input>
+            </el-form-item>
+            <el-form-item label="排除模式" class="exclude-item">
+              <div class="exclude-settings">
+                <el-select
+                  :model-value="getItemConfig(newitem.key).excludeMode || 'global'"
+                  @change="(val: string) => handleExcludeModeChange(newitem.key, val as 'global' | 'custom')"
+                  size="small"
+                  class="exclude-mode-select"
+                  popper-class="exclude-mode-popper"
+                >
+                  <el-option label="跟随全局" value="global" />
+                  <el-option label="自定义" value="custom" />
+                </el-select>
+                <template v-if="getItemConfig(newitem.key).excludeMode === 'custom'">
+                  <div class="custom-exclude-options">
+                    <div class="flex items-center gap-2">
+                      <el-checkbox
+                        :model-value="getItemConfig(newitem.key).excludeWinners !== false"
+                        @change="(val: boolean) => handleCategoryExcludeWinnersChange(newitem.key, val)"
+                      >排除已中奖人员</el-checkbox>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <el-button
+                        size="small"
+                        @click="openExcludedPersonsSelect(newitem.key)"
+                      >
+                        排除指定人员
+                      </el-button>
+                      <span v-if="getExcludedPersonIds(newitem.key).length" class="text-gray-500 text-xs">
+                        已选 {{ getExcludedPersonIds(newitem.key).length }} 人
+                      </span>
+                      <span v-else class="text-gray-400 text-xs">未选择</span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </el-form-item>
+            <el-form-item label="预设名单" class="preset-item">
+              <div class="flex items-center gap-2">
+                <el-switch
+                  v-model="presetEnabled[newitem.key]"
+                  @change="handlePresetToggle(newitem.key)"
+                />
+                <template v-if="presetEnabled[newitem.key]">
+                  <el-button
+                    size="small"
+                    @click="openPresetSelect(newitem.key)"
+                  >
+                    选择预设名单
+                  </el-button>
+                  <span v-if="getPresetIds(newitem.key).length" class="text-gray-500 text-xs">
+                    已选 {{ getPresetIds(newitem.key).length }} 人
+                  </span>
+                </template>
+                <span v-else class="text-gray-400 text-xs">未启用</span>
+              </div>
+            </el-form-item>
+          </div>
+        </div>
       </el-form>
 
       <!-- 操作按钮区域 -->
@@ -88,6 +146,15 @@
       v-model:model-value="selectedPresetIds"
       :category-key="editingPresetCategory ?? ''"
       :user-list="store.list"
+    />
+
+    <PresetSelectDialog
+      :key="'exclude-' + (editingExcludeCategory ?? 'closed')"
+      v-model:visible="excludePersonsSelectVisible"
+      v-model:model-value="selectedExcludedPersonIds"
+      category-key=""
+      :user-list="store.list"
+      title="选择排除人员"
     />
 
     <el-dialog
@@ -120,7 +187,7 @@ import { randomNum } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import { useAudio } from '@/composables/useAudio';
 import type { LotteryItemConfig } from '@/config/lottery';
-import { getLotteryPreset } from '@/config/lottery';
+import { getLotteryPreset, getLotteryExcludedPersons } from '@/config/lottery';
 import PresetSelectDialog from './PresetSelectDialog.vue';
 
 interface Props {
@@ -192,6 +259,67 @@ const handlePresetToggle = (key: string) => {
   }
   setData(configField, form.value);
 };
+
+// ===== 排除模式相关 =====
+
+const handleExcludeModeChange = (key: string, mode: 'global' | 'custom') => {
+  const config = getItemConfig(key);
+  config.excludeMode = mode;
+  if (mode === 'custom' && config.excludeWinners === undefined) {
+    config.excludeWinners = true;
+  }
+  if (mode === 'global') {
+    delete config.excludeWinners;
+    delete config.excludedPersons;
+    delete config.excludeMode;
+  }
+  setData(configField, form.value);
+};
+
+const handleCategoryExcludeWinnersChange = (key: string, val: boolean) => {
+  const config = getItemConfig(key);
+  config.excludeWinners = val;
+  setData(configField, form.value);
+};
+
+const getExcludedPersonIds = (key: string): number[] => {
+  return getLotteryExcludedPersons(form.value, key);
+};
+
+// 排除人员选择弹窗
+const excludePersonsSelectVisible = ref(false);
+const editingExcludeCategory = ref<string | null>(null);
+const excludeByCategory = reactive<Record<string, number[]>>({});
+
+const selectedExcludedPersonIds = computed({
+  get: () => {
+    const key = editingExcludeCategory.value;
+    return key ? (excludeByCategory[key] ?? getExcludedPersonIds(key)) : [];
+  },
+  set: (val: number[]) => {
+    const key = editingExcludeCategory.value;
+    if (key) {
+      excludeByCategory[key] = [...val];
+      const config = getItemConfig(key);
+      config.excludedPersons = val.length ? val.join(',') : '';
+      setData(configField, form.value);
+    }
+  }
+});
+
+const openExcludedPersonsSelect = (categoryKey: string) => {
+  editingExcludeCategory.value = categoryKey;
+  excludeByCategory[categoryKey] = getExcludedPersonIds(categoryKey);
+  excludePersonsSelectVisible.value = true;
+};
+
+watch(excludePersonsSelectVisible, (visible) => {
+  if (!visible) {
+    editingExcludeCategory.value = null;
+  }
+});
+
+// ===== 新增奖项 =====
 
 const showAddLottery = ref(false);
 const newLottery = reactive({ name: '' });
@@ -299,14 +427,15 @@ const handleVolumeChange = (val: number) => {
 
 <style scoped>
 .c-LotteryConfig :deep(.el-dialog__body) {
-  height: 340px;
+  height: 480px;
 }
 .dialog-showAddLottery :deep(.el-dialog) {
   height: 186px;
 }
 
-/* 音频设置卡片样式 */
-.audio-settings-card {
+/* 通用设置卡片样式 */
+.audio-settings-card,
+.lottery-settings-card {
   background-color: #f5f7fa;
   border-radius: 4px;
   padding: 10px 14px;
@@ -357,9 +486,73 @@ const handleVolumeChange = (val: number) => {
   margin-top: 0;
 }
 
-.preset-item {
-  margin-top: -10px;
+.category-card {
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
   margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.category-card-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+  padding: 8px 12px;
+  background-color: #ebeef5;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.category-card-body {
+  padding: 10px 12px 2px;
+}
+
+.category-card-body :deep(.el-form-item) {
+  margin-bottom: 10px;
+}
+
+.exclude-item {
+  margin-bottom: 8px;
+}
+.exclude-item :deep(.el-form-item__label) {
+  font-size: 12px;
+  color: #909399;
+}
+
+.exclude-settings {
+  width: 100%;
+}
+
+.exclude-mode-select {
+  width: 120px;
+}
+
+.custom-exclude-options {
+  margin-top: 6px;
+  padding: 8px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lottery-settings-header {
+  margin-bottom: 8px;
+}
+
+.lottery-settings-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.lottery-settings-content {
+  padding: 2px 0;
+}
+
+.preset-item {
+  margin-bottom: 8px;
 }
 .preset-item :deep(.el-form-item__label) {
   font-size: 12px;
@@ -374,5 +567,11 @@ const handleVolumeChange = (val: number) => {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid #e4e7ed;
+}
+</style>
+
+<style>
+.exclude-mode-popper {
+  z-index: 10200 !important;
 }
 </style>

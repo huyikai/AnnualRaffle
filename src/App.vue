@@ -93,7 +93,8 @@ import {
   resultField,
   newLotteryField,
   conversionCategoryName,
-  listField
+  listField,
+  excludeWinnersField
 } from '@/helper/index';
 import { user, excludedUsers } from '@/config/userLoader';
 import { lottery, config } from '@/config/lottery';
@@ -141,16 +142,18 @@ const datas = computed(() => {
   }
   
   try {
-    // 计算可用的用户数量（排除已中奖和排除名单）
     const wonSet = new Set<number>();
-    Object.values(store.result).flat().forEach(key => wonSet.add(key));
     excludedUsers.forEach(item => wonSet.add(item.key));
+    
+    // TagCanvas 球体跟随全局排除设置
+    if (store.excludeWinners) {
+      Object.values(store.result).flat().forEach(key => wonSet.add(key));
+    }
     
     const availableUsers = store.list
       .map(item => item.key)
       .filter(key => !wonSet.has(key));
     
-    // 如果可用用户数量不足，只显示可用用户
     const numToShow = Math.min(availableUsers.length, store.list.length);
     
     if (numToShow === 0) {
@@ -160,7 +163,8 @@ const datas = computed(() => {
     const randomShowNums = annualRaffleHandler(
       {
         won: [],
-        num: numToShow
+        num: numToShow,
+        excludeWinners: store.excludeWinners
       },
       {
         result: store.result,
@@ -181,7 +185,6 @@ const datas = computed(() => {
     });
     return randomShowDatas;
   } catch (error) {
-    // 如果抽奖失败，返回空数组，避免阻塞 UI
     console.warn('生成标签数据失败:', error);
     return [];
   }
@@ -268,6 +271,11 @@ onMounted(() => {
       store.setList(list as UserItem[]);
     } else {
       store.setList(user);
+    }
+
+    const savedExcludeWinners = getData(excludeWinnersField);
+    if (typeof savedExcludeWinners === 'boolean') {
+      store.setExcludeWinners(savedExcludeWinners);
     }
   } catch (error) {
     console.error('数据初始化失败:', error);

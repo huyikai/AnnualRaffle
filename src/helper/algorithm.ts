@@ -32,6 +32,8 @@ interface LotteryConfig {
   won?: number[];
   num: number;
   category?: string;
+  excludeWinners?: boolean;
+  excludedPersons?: number[];
 }
 
 import type { LotteryConfigType } from '@/config/lottery';
@@ -77,17 +79,28 @@ export function annualRaffleHandler(
   store: LotteryStore,
   excludedUsers: Array<{ key: number; name: string }> = []
 ): number[] {
-  const { won = [], num, category } = config;
+  const { won = [], num, category, excludeWinners = true, excludedPersons = [] } = config;
   
-  // 使用 Set 存储已中奖用户，提升查找性能 O(1)
   const wonSet = new Set<number>();
   
-  // 添加已中奖用户
-  won.forEach(key => wonSet.add(key));
-  Object.values(store.result).flat().forEach(key => wonSet.add(key));
-  
-  // 添加全局排除名单（适用于所有奖项）
+  // 1. 始终排除：全局排除名单（代码中硬编码的 excludedUsers）
   excludedUsers.forEach(item => wonSet.add(item.key));
+  
+  // 2. 始终排除：同奖项已中奖者（防止同一人在同一奖项重复出现）
+  if (category && store.result[category]) {
+    store.result[category].forEach(key => wonSet.add(key));
+  }
+  
+  // 3. 按设置排除：所有奖项的已中奖者
+  if (excludeWinners) {
+    won.forEach(key => wonSet.add(key));
+    Object.values(store.result).flat().forEach(key => wonSet.add(key));
+  }
+  
+  // 4. 按设置排除：指定人员
+  if (excludedPersons.length > 0) {
+    excludedPersons.forEach(key => wonSet.add(key));
+  }
   
   // 检查是否有预设名单
   if (category) {

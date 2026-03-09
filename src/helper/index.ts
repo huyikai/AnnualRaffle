@@ -79,6 +79,7 @@ export const newLotteryField = 'newLottery'; // 新增奖项
 export const listField = 'list'; // 名单
 export const audioMutedField = 'audioMuted'; // 音频静音状态
 export const audioVolumeField = 'audioVolume'; // 音频音量值
+export const excludeWinnersField = 'excludeWinners'; // 全局排除已中奖人员
 
 /**
  * 转换奖项分类名称

@@ -3,11 +3,12 @@
  * 封装抽奖开始、停止、结果显示等逻辑
  */
 
-import { ref, computed, nextTick } from 'vue';
+import { ref, nextTick } from 'vue';
 import { annualRaffleHandler } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import type { LotteryForm } from '@/types';
 import type { UserItem } from '@/config/userLoader';
+import { getLotteryExcludeMode, getLotteryExcludeWinners, getLotteryExcludedPersons } from '@/config/lottery';
 import { LOTTERY_MODE, LOTTERY_TIMING, TAG_CANVAS_CONFIG } from '@/constants';
 import { ElMessage } from 'element-plus';
 import { useTagCanvas } from './useTagCanvas';
@@ -28,20 +29,6 @@ export function useLottery(excludedUsers: UserItem[] = []) {
   let drawStartTime = 0;
 
   /**
-   * 计算所有已中奖结果
-   */
-  const allresult = computed(() => {
-    const allresult: number[] = [];
-    for (const key in store.result) {
-      if (store.result.hasOwnProperty(key)) {
-        const element = store.result[key];
-        allresult.push(...element);
-      }
-    }
-    return allresult;
-  });
-
-  /**
    * 开始抽奖
    * @returns 是否成功开始抽奖
    */
@@ -50,7 +37,7 @@ export function useLottery(excludedUsers: UserItem[] = []) {
       return false;
     }
 
-    const { category: formCategory, mode, qty, remain, allin } = form;
+    const { category: formCategory, mode, qty, remain } = form;
     let num = 1;
     if (mode === LOTTERY_MODE.ONE || mode === LOTTERY_MODE.FIVE) {
       num = mode;
@@ -60,12 +47,26 @@ export function useLottery(excludedUsers: UserItem[] = []) {
       num = qty;
     }
 
+    // 计算有效排除参数：奖项级设置优先于全局
+    const categoryMode = getLotteryExcludeMode(store.config, formCategory);
+    let effectiveExcludeWinners: boolean;
+    let effectiveExcludedPersons: number[];
+
+    if (categoryMode === 'custom') {
+      effectiveExcludeWinners = getLotteryExcludeWinners(store.config, formCategory);
+      effectiveExcludedPersons = getLotteryExcludedPersons(store.config, formCategory);
+    } else {
+      effectiveExcludeWinners = store.excludeWinners;
+      effectiveExcludedPersons = [];
+    }
+
     try {
       const resArrResult = annualRaffleHandler(
         {
           category: formCategory,
-          won: allin ? [] : allresult.value,
-          num
+          num,
+          excludeWinners: effectiveExcludeWinners,
+          excludedPersons: effectiveExcludedPersons
         },
         {
           result: store.result,
@@ -157,7 +158,6 @@ export function useLottery(excludedUsers: UserItem[] = []) {
     showRes,
     resArr,
     category,
-    allresult,
     startDraw,
     stopDraw,
     toggleDraw,

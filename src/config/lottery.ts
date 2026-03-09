@@ -10,10 +10,13 @@ export interface LotteryItem {
   defaultCount: number;
 }
 
-// 奖项配置项接口（支持预设名单）
+// 奖项配置项接口（支持预设名单和排除设置）
 export interface LotteryItemConfig {
   count: number;
   preset?: string;  // 可选，逗号分隔的用户ID字符串
+  excludeMode?: 'global' | 'custom';  // 排除模式：跟随全局 / 自定义（默认 global）
+  excludeWinners?: boolean;            // 自定义模式下：是否排除已中奖人员
+  excludedPersons?: string;            // 自定义模式下：排除指定人员（逗号分隔ID）
 }
 
 // 奖项定义数组（单一数据源）
@@ -56,6 +59,33 @@ export function getLotteryPreset(config: LotteryConfigType, key: string): string
     return value.preset;
   }
   return undefined;
+}
+
+// 辅助函数：获取排除模式
+export function getLotteryExcludeMode(config: LotteryConfigType, key: string): 'global' | 'custom' {
+  const value = config[key];
+  if (value && typeof value === 'object' && value.excludeMode) {
+    return value.excludeMode;
+  }
+  return 'global';
+}
+
+// 辅助函数：获取自定义模式下是否排除已中奖
+export function getLotteryExcludeWinners(config: LotteryConfigType, key: string): boolean {
+  const value = config[key];
+  if (value && typeof value === 'object' && value.excludeWinners !== undefined) {
+    return value.excludeWinners;
+  }
+  return true;
+}
+
+// 辅助函数：获取自定义模式下排除指定人员列表
+export function getLotteryExcludedPersons(config: LotteryConfigType, key: string): number[] {
+  const value = config[key];
+  if (value && typeof value === 'object' && value.excludedPersons) {
+    return value.excludedPersons.split(',').map(id => Number(id.trim())).filter(Boolean);
+  }
+  return [];
 }
 
 // 结果类型定义（从奖项定义自动生成，无需手动维护）
