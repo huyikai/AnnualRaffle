@@ -96,6 +96,16 @@ export const DEFAULT_CONFIG = {
 } as const;
 
 /**
+ * 抽奖时机配置（防抖/防连击）
+ */
+export const LOTTERY_TIMING = {
+  /** 最小抽奖运行时长（毫秒），防止误触立即停止 */
+  MIN_DRAW_DURATION: 1000,
+  /** 按钮点击节流间隔（毫秒），防止双击 */
+  BUTTON_THROTTLE: 300
+} as const;
+
+/**
  * 音频配置常量
  */
 export const AUDIO_CONFIG = {

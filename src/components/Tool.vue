@@ -108,7 +108,7 @@ import {
 } from '@/helper/index';
 import { database, DB_STORE_NAME } from '@/helper/db';
 import { useLotteryStore } from '@/stores/lottery';
-import { DEFAULT_CONFIG, LOTTERY_MODE } from '@/constants';
+import { DEFAULT_CONFIG, LOTTERY_MODE, LOTTERY_TIMING } from '@/constants';
 import type { LotteryForm } from '@/types';
 import { ResetType } from '@/types';
 import { getLotteryCount } from '@/config/lottery';
@@ -169,6 +169,7 @@ const categorys = computed(() => {
 
 const showSetwat = ref(false);
 const showRemoveoptions = ref(false);
+const lastClickTime = ref(0);
 const removeInfo = reactive<{ type: ResetType }>({ type: ResetType.RESULT });
 const form = reactive<LotteryForm>({
   category: DEFAULT_CONFIG.DEFAULT_CATEGORY,
@@ -237,6 +238,12 @@ const resetConfig = () => {
 };
 
 const onSubmit = () => {
+  const now = Date.now();
+  if (now - lastClickTime.value < LOTTERY_TIMING.BUTTON_THROTTLE) {
+    return;
+  }
+  lastClickTime.value = now;
+
   if (props.running) {
     emit('stop');
   } else {

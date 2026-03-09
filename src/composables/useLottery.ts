@@ -8,7 +8,8 @@ import { annualRaffleHandler } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import type { LotteryForm } from '@/types';
 import type { UserItem } from '@/config/userLoader';
-import { LOTTERY_MODE, TAG_CANVAS_CONFIG } from '@/constants';
+import { LOTTERY_MODE, LOTTERY_TIMING, TAG_CANVAS_CONFIG } from '@/constants';
+import { ElMessage } from 'element-plus';
 import { useTagCanvas } from './useTagCanvas';
 import { useAudio } from './useAudio';
 
@@ -24,6 +25,7 @@ export function useLottery(excludedUsers: UserItem[] = []) {
   const showRes = ref(false);
   const resArr = ref<number[]>([]);
   const category = ref('');
+  let drawStartTime = 0;
 
   /**
    * 计算所有已中奖结果
@@ -77,6 +79,7 @@ export function useLottery(excludedUsers: UserItem[] = []) {
       showRes.value = false;
       setSpeed(TAG_CANVAS_CONFIG.DRAW_SPEED);
       running.value = true;
+      drawStartTime = Date.now();
       resArr.value = resArrResult;
 
       category.value = formCategory;
@@ -112,6 +115,15 @@ export function useLottery(excludedUsers: UserItem[] = []) {
    * 停止抽奖
    */
   const stopDraw = (): void => {
+    if (
+      running.value &&
+      Date.now() - drawStartTime < LOTTERY_TIMING.MIN_DRAW_DURATION
+    ) {
+      ElMessage.warning(
+        `转盘至少转动${LOTTERY_TIMING.MIN_DRAW_DURATION / 1000}秒，请稍候`
+      );
+      return;
+    }
     setSpeed(getNormalSpeed());
     showRes.value = true;
     running.value = false;
