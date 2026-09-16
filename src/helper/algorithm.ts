@@ -37,7 +37,7 @@ interface LotteryConfig {
 }
 
 import type { LotteryConfigType } from '@/config/lottery';
-import { getLotteryPreset } from '@/config/lottery';
+import { canUserParticipate, getLotteryPreset } from '@/config/lottery';
 import type { UserItem } from '@/config/userLoader';
 
 interface LotteryStore {
@@ -50,22 +50,9 @@ interface LotteryStore {
 
 /**
  * 检查用户是否可以参加指定奖项
- * @param user 用户对象
- * @param prizeKey 奖项 key
- * @returns 是否可以参加
+ * 实现已迁移至 @/config/lottery，此处保留导出以兼容既有引用
  */
-export function canUserParticipate(user: UserItem, prizeKey: string | undefined): boolean {
-  // 如果没有指定奖项，允许参加
-  if (!prizeKey) {
-    return true;
-  }
-  // 如果用户没有限制，可以参加所有奖项
-  if (!user.allowedPrizes || user.allowedPrizes.length === 0) {
-    return true;
-  }
-  // 检查当前奖项是否在允许列表中
-  return user.allowedPrizes.includes(prizeKey);
-}
+export { canUserParticipate };
 
 /**
  * 单次抽奖

@@ -18,7 +18,10 @@
       :titles="['可选人员', '已选名单']"
     >
       <template #default="{ option }">
-        <el-tooltip :content="`ID: ${option.key}`" placement="top">
+        <el-tooltip
+          :content="disabledReasons[option.key] ? `${disabledReasons[option.key]}（ID: ${option.key}）` : `ID: ${option.key}`"
+          placement="top"
+        >
           <div class="preset-transfer-item">
             <img
               :src="getUserAvatarUrl(option.key)"
@@ -26,7 +29,10 @@
               alt=""
               @error="handleAvatarError"
             />
-            <span class="preset-name">{{ option.label }}</span>
+            <div class="preset-text">
+              <span class="preset-name" :class="{ 'preset-name-disabled': disabledReasons[option.key] }">{{ option.label }}</span>
+              <span v-if="disabledReasons[option.key]" class="preset-disabled-reason">{{ disabledReasons[option.key] }}</span>
+            </div>
           </div>
         </el-tooltip>
       </template>
@@ -52,10 +58,13 @@ interface Props {
   categoryKey: string;
   userList: UserItem[];
   title?: string;
+  /** 用户 key → 禁选原因；有原因的人员置灰不可选，悬停及列表中展示原因 */
+  disabledReasons?: Record<number, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  title: '选择预设名单'
+  title: '选择预设名单',
+  disabledReasons: () => ({})
 });
 const emit = defineEmits<{
   'update:visible': [value: boolean];
@@ -90,14 +99,14 @@ watch(
   { deep: true }
 );
 
-// 过滤出可参与当前奖项的用户，构建 transfer 数据源
+// 过滤出可参与当前奖项的用户，构建 transfer 数据源（存在禁选原因的人员置灰不可选）
 const transferData = computed((): TransferOption[] => {
   return props.userList
     .filter((user) => canUserParticipate(user, props.categoryKey))
     .map((user) => ({
       key: user.key,
       label: user.name,
-      disabled: false
+      disabled: !!props.disabledReasons[user.key]
     }));
 });
 
@@ -130,8 +139,27 @@ const handleClose = () => {
   flex-shrink: 0;
 }
 
-.preset-name {
+.preset-text {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.preset-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-name-disabled {
+  color: #c0c4cc;
+}
+
+.preset-disabled-reason {
+  font-size: 11px;
+  color: #f56c6c;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

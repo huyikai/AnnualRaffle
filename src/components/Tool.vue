@@ -1,21 +1,33 @@
 <template>
   <div>
     <div id="tool" class="fixed bottom-[30px] left-1/2 -translate-x-1/2 text-center flex flex-col items-center justify-center gap-2.5" style="z-index: 10000;">
-      <el-select
-        v-model="form.category"
-        placeholder="请选取本次抽取的奖项"
-        class="custom-select w-[150px]"
-        popper-class="tool-select-dropdown"
-        :popper-append-to-body="true"
-        placement="top"
-      >
-        <el-option
-          :label="item.label"
-          :value="item.value"
-          v-for="(item, index) in categorys"
-          :key="index"
-        ></el-option>
-      </el-select>
+      <div class="relative w-[150px]">
+        <el-select
+          v-model="form.category"
+          placeholder="请选取本次抽取的奖项"
+          class="custom-select w-[150px]"
+          popper-class="tool-select-dropdown"
+          :popper-append-to-body="true"
+          placement="top"
+        >
+          <el-option
+            :label="item.label"
+            :value="item.value"
+            v-for="(item, index) in categorys"
+            :key="index"
+          ></el-option>
+        </el-select>
+        <el-tooltip :disabled="!presetIssues.length" placement="top" effect="dark">
+          <template #content>
+            <div class="preset-issue-line">预设名单中有 {{ presetIssues.length }} 人无法参与本奖项：</div>
+            <div v-for="issue in presetIssues" :key="issue.key" class="preset-issue-line">
+              {{ issue.name }}（{{ issue.reason }}）
+            </div>
+            <div class="preset-issue-line">可在「抽奖配置」中调整预设名单或排除设置</div>
+          </template>
+          <span v-if="presetIssues.length" class="preset-alert-dot"></span>
+        </el-tooltip>
+      </div>
       <el-button
         :class="running ? 'btn-stop' : 'btn-start'"
         type="primary"
@@ -111,7 +123,8 @@ import { useLotteryStore } from '@/stores/lottery';
 import { DEFAULT_CONFIG, LOTTERY_MODE, LOTTERY_TIMING } from '@/constants';
 import type { LotteryForm } from '@/types';
 import { ResetType } from '@/types';
-import { getLotteryCount } from '@/config/lottery';
+import { getLotteryCount, getPresetIssues } from '@/config/lottery';
+import { excludedUsers } from '@/config/userLoader';
 
 interface Props {
   running: boolean;
@@ -142,6 +155,22 @@ const remain = computed(() => {
       ? result.value[form.category].length
       : 0)
   );
+});
+
+// 当前选中奖项的预设失效成员：开奖结果提交后实时更新，
+// 仅以小红点 + 悬停明细提醒操作者，不在大屏弹出任何文字
+const presetIssues = computed(() => {
+  return getPresetIssues({
+    config: config.value,
+    categoryKey: form.category,
+    globalExcludeWinners: store.excludeWinners,
+    result: result.value,
+    excludedUsers,
+    list: store.list
+  }).map(issue => ({
+    ...issue,
+    name: store.list.find(u => u.key === issue.key)?.name ?? `ID ${issue.key}`
+  }));
 });
 
 const categorys = computed(() => {
@@ -313,5 +342,35 @@ const onSubmit = () => {
 /* 确保下拉菜单显示在按钮上方 */
 :deep(.tool-select-dropdown) {
   z-index: 10001 !important;
+}
+
+/* 预设名单失效提醒：无文字小红点，悬停显示明细，避免在大屏暴露信息 */
+.preset-alert-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #f56c6c;
+  box-shadow: 0 0 6px rgba(245, 108, 108, 0.8);
+  animation: preset-alert-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes preset-alert-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+}
+
+.preset-issue-line {
+  line-height: 1.6;
 }
 </style>

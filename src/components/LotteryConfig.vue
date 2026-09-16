@@ -146,6 +146,7 @@
       v-model:model-value="selectedPresetIds"
       :category-key="editingPresetCategory ?? ''"
       :user-list="store.list"
+      :disabled-reasons="presetDisabledReasons"
     />
 
     <PresetSelectDialog
@@ -182,12 +183,14 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue';
+import { ElMessage } from 'element-plus';
 import { setData, configField } from '@/helper/index';
 import { randomNum } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import { useAudio } from '@/composables/useAudio';
 import type { LotteryItemConfig } from '@/config/lottery';
-import { getLotteryPreset, getLotteryExcludedPersons } from '@/config/lottery';
+import { getLotteryPreset, getLotteryExcludedPersons, getPresetDisabledReasons, getPresetIssues } from '@/config/lottery';
+import { excludedUsers } from '@/config/userLoader';
 import PresetSelectDialog from './PresetSelectDialog.vue';
 
 interface Props {
@@ -354,9 +357,52 @@ const selectedPresetIds = computed({
   }
 });
 
+// 预设弹窗禁选原因：与抽奖排除规则一致，由 lottery.ts 统一计算
+const presetDisabledReasons = computed<Record<number, string>>(() => {
+  const key = editingPresetCategory.value;
+  if (!key) return {};
+  return getPresetDisabledReasons({
+    config: form.value,
+    categoryKey: key,
+    globalExcludeWinners: store.excludeWinners,
+    result: store.result,
+    excludedUsers,
+    list: store.list
+  });
+});
+
 const openPresetSelect = (categoryKey: string) => {
   editingPresetCategory.value = categoryKey;
-  presetByCategory[categoryKey] = getPresetIds(categoryKey);
+
+  // 自动清理已保存但现已无法中奖的预设成员（与抽奖排除规则一致），
+  // 避免 el-transfer 中 disabled 项被卡在右侧无法移除
+  const currentIds = [...new Set(getPresetIds(categoryKey))];
+  const issues = getPresetIssues({
+    config: form.value,
+    categoryKey,
+    globalExcludeWinners: store.excludeWinners,
+    result: store.result,
+    excludedUsers,
+    list: store.list
+  });
+  const issueByKey = new Map(issues.map(issue => [issue.key, issue]));
+  const keptIds = currentIds.filter(id => !issueByKey.has(id));
+
+  if (keptIds.length !== currentIds.length) {
+    const removedDetail = currentIds
+      .filter(id => issueByKey.has(id))
+      .map(id => {
+        const issue = issueByKey.get(id)!;
+        const name = store.list.find(u => u.key === id)?.name;
+        return name ? `${name}（${issue.reason}）` : `ID ${id}（${issue.reason}）`;
+      })
+      .join('、');
+    ElMessage.warning(`已从预设名单移除无法中奖的人员：${removedDetail}`);
+    getItemConfig(categoryKey).preset = keptIds.join(',');
+    setData(configField, form.value);
+  }
+
+  presetByCategory[categoryKey] = keptIds;
   presetSelectVisible.value = true;
 };
 

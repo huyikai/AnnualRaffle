@@ -8,7 +8,7 @@ import { annualRaffleHandler } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import type { LotteryForm } from '@/types';
 import type { UserItem } from '@/config/userLoader';
-import { getLotteryExcludeMode, getLotteryExcludeWinners, getLotteryExcludedPersons } from '@/config/lottery';
+import { getEffectiveExcludeSettings } from '@/config/lottery';
 import { LOTTERY_MODE, LOTTERY_TIMING, TAG_CANVAS_CONFIG } from '@/constants';
 import { ElMessage } from 'element-plus';
 import { useTagCanvas } from './useTagCanvas';
@@ -48,17 +48,8 @@ export function useLottery(excludedUsers: UserItem[] = []) {
     }
 
     // 计算有效排除参数：奖项级设置优先于全局
-    const categoryMode = getLotteryExcludeMode(store.config, formCategory);
-    let effectiveExcludeWinners: boolean;
-    let effectiveExcludedPersons: number[];
-
-    if (categoryMode === 'custom') {
-      effectiveExcludeWinners = getLotteryExcludeWinners(store.config, formCategory);
-      effectiveExcludedPersons = getLotteryExcludedPersons(store.config, formCategory);
-    } else {
-      effectiveExcludeWinners = store.excludeWinners;
-      effectiveExcludedPersons = [];
-    }
+    const { excludeWinners: effectiveExcludeWinners, excludedPersons: effectiveExcludedPersons } =
+      getEffectiveExcludeSettings(store.config, formCategory, store.excludeWinners);
 
     try {
       const resArrResult = annualRaffleHandler(
