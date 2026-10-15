@@ -1,9 +1,9 @@
 /**
  * 用户数据示例文件
- * 
+ *
  * 这是一个示例文件，展示了用户数据的格式。
  * 实际使用时，请复制此文件为 user.ts 并替换为真实数据。
- * 
+ *
  * 数据结构说明：
  * - key: 用户唯一标识（数字）
  * - name: 用户姓名（字符串）
@@ -13,8 +13,7 @@
 export interface UserItem {
   key: number;
   name: string;
-  allowedPrizes?: string[];  // 可选：允许参加的奖项 key 列表。如果未设置或为空数组，表示可以参加所有奖项
-  // 示例：{ key: 2200030, name: '李微', allowedPrizes: ['luckyFirst', 'luckySecond'] }  // 只能参加幸运奖
+  allowedPrizes?: string[]; // 可选：允许参加的奖项 key 列表。如果未设置或为空数组，表示可以参加所有奖项
 }
 
 /**
@@ -25,7 +24,7 @@ export const user: UserItem[] = [
   ...[
     { key: 1001, name: '张三' },
     { key: 1002, name: '李四' },
-    { key: 1003, name: '王五', allowedPrizes: ['luckyFirst', 'luckySecond'] },  // 示例：只能参加幸运奖
+    { key: 1003, name: '王五', allowedPrizes: ['luckyFirst', 'luckySecond'] }, // 示例：只能参加幸运奖
     { key: 1004, name: '赵六' },
     { key: 1005, name: '钱七' },
     { key: 1006, name: '孙八' },
@@ -120,7 +119,7 @@ export const user: UserItem[] = [
     { key: 1095, name: '郝九七' },
     { key: 1096, name: '龚九八' },
     { key: 1097, name: '邵九九' },
-    { key: 1098, name: '万一百' }
+    { key: 1098, name: '万一百' },
   ],
   ...[
     { key: 2001, name: '武一零一' },
@@ -172,8 +171,8 @@ export const user: UserItem[] = [
     { key: 2047, name: '尚一四七' },
     { key: 2048, name: '符一四八' },
     { key: 2049, name: '舒一四九' },
-    { key: 2050, name: '阮一五零' }
-  ]
+    { key: 2050, name: '阮一五零' },
+  ],
 ];
 
 /**
@@ -183,5 +182,5 @@ export const user: UserItem[] = [
 export const excludedUsers: UserItem[] = [
   { key: 1001, name: '张三' },
   { key: 1002, name: '李四' },
-  { key: 1003, name: '王五' }
+  { key: 1003, name: '王五' },
 ];
