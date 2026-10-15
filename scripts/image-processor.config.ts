@@ -1,6 +1,6 @@
 /**
  * 图片处理配置文件
- * 
+ *
  * 配置项说明：
  * - processingMode: 处理模式 ('fast' | 'ai')
  *   - fast: 快速模式，基于颜色阈值抠图，速度快（<1秒/张），无需额外依赖
@@ -42,12 +42,12 @@ export const defaultConfig: ImageProcessorConfig = {
   processingMode: 'ai',
   targetSize: {
     width: 160,
-    height: 160
+    height: 160,
   },
   outputFormat: 'jpg',
   backgroundColor: '#962520',
   inputDir: 'scripts/input',
   outputDir: 'scripts/output',
   quality: 100,
-  cropMode: 'smart'
+  cropMode: 'smart',
 };

@@ -95,7 +95,13 @@ export interface TagCanvasOptions {
   paused?: boolean;
   dragControl?: boolean;
   dragThreshold?: number;
-  centreFunc?: (ctx: CanvasRenderingContext2D, width: number, height: number, x: number, y: number) => void;
+  centreFunc?: (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    x: number,
+    y: number,
+  ) => void;
   splitWidth?: number;
   animTiming?: string;
   clickToFront?: boolean | null;
@@ -131,7 +137,11 @@ export interface TagCanvasOptions {
 export interface TagCanvasInstance {
   canvas: HTMLCanvasElement;
   ctxt: CanvasRenderingContext2D;
-  Start: (canvasId: string, tagsId: string, options?: Partial<TagCanvasOptions>) => void;
+  Start: (
+    canvasId: string,
+    tagsId: string,
+    options?: Partial<TagCanvasOptions>,
+  ) => void;
   Reload: (canvasId: string) => void;
   SetSpeed: (canvasId: string, speed: [number, number]) => boolean;
   Delete: (canvasId: string) => void;
