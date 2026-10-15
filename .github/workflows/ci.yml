@@ -51,6 +51,13 @@ jobs:
         run: |
           set -o pipefail
           npx vue-tsc --noEmit 2>&1 | tee /tmp/tsc.log || true
+          # vue-tsc 因为 vendored 的 tagcanvas 报错必然非零退出，所以退出码不能直接当门禁。
+          # 但「崩溃 / 被 OOM 杀掉」时它一行诊断都吐不出来，原来的 grep 找不到任何 error 行，
+          # 于是照样打印 ✅ —— 那是一个静默放行。必须先确认它真的产出了诊断。
+          if ! grep -q 'error TS' /tmp/tsc.log; then
+            echo "::error::vue-tsc 没有产出任何类型诊断，疑似崩溃或 OOM，检查结果不可信"
+            exit 1
+          fi
           if grep -E '^[a-zA-Z].*error' /tmp/tsc.log | grep -v 'src/lib/tagcanvas.ts'; then
             echo "::error::存在本仓库的类型错误"
             exit 1
@@ -61,11 +68,13 @@ jobs:
         run: pnpm test:run
 
       - name: 构建 · 网页版
-        # base 必须是 /AnnualRaffle，GitHub Pages 依赖子路径
+        # base 必须是 /AnnualRaffle，GitHub Pages 依赖子路径。
+        # 断言要同时覆盖 src 和 href：只查 src 的话，CSS 的 <link href> 路径写错也能通过，
+        # 报错信息还会指向一个看起来正确的路径，把排查带偏。
         run: |
           pnpm build
-          grep -q '/AnnualRaffle/assets/' dist/index.html || {
-            echo "::error::网页版构建产物路径不对：$(grep -o 'src=\"[^\"]*\"' dist/index.html | head -3)"
+          grep -qE '(src|href)="/AnnualRaffle/assets/' dist/index.html || {
+            echo "::error::网页版构建产物路径不对，实际引用：$(grep -oE '(src|href)="[^"]*"' dist/index.html | head -5)"
             exit 1
           }
           echo "✅ 网页版构建路径正确"
@@ -74,8 +83,8 @@ jobs:
         # base 必须是 ./，Tauri 从 tauri://localhost 加载，绝对路径会白屏
         run: |
           pnpm build:tauri
-          grep -q 'src="\./assets/' dist/index.html || {
-            echo "::error::桌面版构建产物路径不对：$(grep -o 'src=\"[^\"]*\"' dist/index.html | head -3)"
+          grep -qE '(src|href)="\./assets/' dist/index.html || {
+            echo "::error::桌面版构建产物路径不对，实际引用：$(grep -oE '(src|href)="[^"]*"' dist/index.html | head -5)"
             exit 1
           }
           echo "✅ 桌面版构建路径正确"
@@ -108,23 +117,18 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Cache Playwright report
-        uses: actions/cache@v4
-        with:
-          path: |
-            playwright-report/
-            test-results/
-          key: playwright-${{ github.sha }}
-          restore-keys: playwright-
-
       - name: Run e2e
         run: pnpm test:e2e
 
+      # 这里原本有一份 actions/cache，key 是 playwright-<sha>、restore-keys 是 playwright-。
+      # 两个问题叠在一起：主 key 每个 commit 都变，永远命中不了；而宽松的 restore-keys 会把
+      # 别的提交的 report 拉回来，失败时又当作本次产物上传——排查时看到的是别人的报告。
+      # report 本身重新生成很便宜，缓存换来的收益抵不上这个误导，直接去掉。
       - name: Upload test artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ github.run_attempt }}
           path: |
             playwright-report/
             test-results/

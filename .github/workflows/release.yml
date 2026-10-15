@@ -5,11 +5,11 @@ on:
   push:
     tags:
       - 'v*'
-  # 手动触发（GitHub 页面 Actions → Release → Run workflow），tag 留空则用当前分支的版本号
+  # 手动触发（GitHub 页面 Actions → Release → Run workflow）
   workflow_dispatch:
     inputs:
       tag:
-        description: '要发布的版本号，如 v1.0.0'
+        description: '要发布的版本号，如 v1.0.0（必须是已存在的 tag）'
         required: true
 
 permissions:
@@ -38,6 +38,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 手动触发时必须检出目标 tag。不指定 ref 的话 checkout 拿到的是页面上
+          # 选中的分支，于是「用 main 的代码构建、却挂在 v1.0.0 的 Release 下」。
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       # 顺序要紧：actions/setup-node 带 cache: 'pnpm' 时会先执行
       # `pnpm store path` 定位缓存目录，pnpm 必须已经装好，否则报
@@ -56,13 +60,19 @@ jobs:
           cache: 'pnpm'
 
       # 手动触发时，tauri-action 需要目标 tag 已存在于仓库中，否则无法创建 Release
-      - name: Verify tag exists (manual dispatch only)
+      - name: Verify tag exists and matches checkout (manual dispatch only)
         if: github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           git fetch origin --tags
-          if ! git rev-parse -q --verify "refs/tags/${{ inputs.tag }}" >/dev/null; then
-            echo "::error::标签 ${{ inputs.tag }} 不存在。请先执行 git tag ${{ inputs.tag }} && git push origin ${{ inputs.tag }}"
+          TAG='${{ inputs.tag }}'
+          if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::标签 $TAG 不存在。请先执行 git tag $TAG && git push origin $TAG"
+            exit 1
+          fi
+          # 只验「tag 存在」不够：还得确认当前检出的就是那个 tag 的 commit
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse "refs/tags/$TAG^{commit}")" ]; then
+            echo "::error::检出的 commit 与标签 $TAG 不一致，拒绝发布"
             exit 1
           fi
 
@@ -96,7 +106,15 @@ jobs:
             echo "::error::四处版本号不一致，请同步后再打 tag"
             exit 1
           fi
-          echo "✅ 版本号一致：$P"
+          # 光是四处彼此一致还不够。少了这一步，四处一起写成 1.0.0 而 tag 打的是
+          # v1.0.1 也会放行：Release 标题按 tag 显示 1.0.1，产物名和包内版本却是 1.0.0。
+          TAG='${{ github.event.inputs.tag || github.ref_name }}'
+          EXPECTED="${TAG#v}"
+          if [ "$P" != "$EXPECTED" ]; then
+            echo "::error::版本号与标签不一致：四处均为 $P，但标签是 $TAG（期望 $EXPECTED）"
+            exit 1
+          fi
+          echo "✅ 版本号一致：$P（标签 $TAG）"
 
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0

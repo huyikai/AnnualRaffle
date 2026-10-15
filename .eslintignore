@@ -4,6 +4,9 @@ src-tauri/target/
 src-tauri/gen/
 
 # vendored 第三方库：压缩过的源码，不做代码风格检查
+# 踩过的坑：lint 脚本一旦用 --ignore-path .gitignore 就会整个覆盖掉本文件，
+# 结果 `pnpm lint`（带 --fix）会把 tagcanvas.ts 整体重排成三千行的无意义 diff。
+# 两个脚本必须共用这一份忽略清单。
 src/lib/tagcanvas.ts
 src/lib/tagcanvas.types.ts
 
@@ -13,3 +16,18 @@ playwright-report/
 
 # 依赖与缓存
 node_modules/
+
+# 环境变量：可能含密钥，不参与 lint
+.env
+.env.*
+!.env.example
+
+# 编辑器目录
+.idea/
+.vscode/
+
+# 本地用户数据（与 .gitignore 保持一致）
+src/config/user.ts
+public/user/
+scripts/input/
+scripts/output/
