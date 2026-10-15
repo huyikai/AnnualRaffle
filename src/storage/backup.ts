@@ -14,6 +14,7 @@ import type { Prize, PrizeTombstones } from '@/data/prizes';
 import type { LotteryConfigType } from '@/config/lottery';
 import type { ResultKeys, ResultMeta } from '@/storage/result';
 import { isTauri } from '@/platform';
+import { pickFiles } from '@/utils/pickFile';
 
 export const BACKUP_VERSION = 2;
 export const SNAPSHOT_KEEP = 10;
@@ -184,27 +185,10 @@ export async function pickBackupFile(): Promise<BackupPayload | null> {
 }
 
 /** 网页端用隐藏的 file input 选文件 */
-function pickFileViaInput(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    input.style.display = 'none';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (!file) {
-        resolve(null);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ''));
-      reader.onerror = () => resolve(null);
-      reader.readAsText(file, 'utf-8');
-    });
-    document.body.appendChild(input);
-    input.click();
-    document.body.removeChild(input);
-  });
+async function pickFileViaInput(): Promise<string | null> {
+  const [file] = await pickFiles({ accept: 'application/json,.json' });
+  if (!file) return null;
+  return file.text();
 }
 
 // ========== 自动快照 ==========

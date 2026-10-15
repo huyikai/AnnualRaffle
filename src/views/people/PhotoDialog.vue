@@ -15,15 +15,26 @@
           @error="onPreviewError"
         />
         <div class="single-actions">
-          <el-button size="small" type="primary" @click="pickSingle">
+          <el-button
+            size="small"
+            type="primary"
+            :disabled="!canWrite"
+            @click="pickSingle"
+          >
             {{ hasExisting ? '更换照片' : '选择照片' }}
           </el-button>
-          <el-button size="small" :disabled="!hasExisting" @click="clearSingle"
+          <el-button
+            size="small"
+            :disabled="!hasExisting || !canWrite"
+            @click="clearSingle"
             >清除照片</el-button
           >
         </div>
         <p class="single-hint">
           支持 JPG / PNG / WebP，≤10 MB。会等比压缩到最长边 512px 后保存。
+        </p>
+        <p v-if="!canWrite" class="single-hint">
+          当前环境不支持写入照片文件（网页版仅支持读取 public/user/ 下的图片）
         </p>
       </div>
     </template>
@@ -57,6 +68,13 @@
         <span class="warn">按姓名 {{ counts.name }}</span>
         <span class="dot">·</span>
         <span class="bad">未匹配 {{ counts.unmatched }}</span>
+      </div>
+
+      <!-- 进度条放在表格「之前」：runImport 一旦开跑 entries 必然非空，
+           放在表格之后会被 v-if 抢先命中，永远显示不出来 -->
+      <div v-if="running" class="batch-progress">
+        <el-progress :percentage="progressPercent" :stroke-width="6" />
+        <p class="batch-note">正在校验并压缩 {{ progress }} / {{ pending }}…</p>
       </div>
 
       <el-table
@@ -93,12 +111,11 @@
         </el-table-column>
       </el-table>
 
-      <div v-else-if="running" class="batch-progress">
-        <el-progress :percentage="progress" :stroke-width="6" />
-        <p class="batch-note">正在校验并压缩 {{ progress }} / {{ pending }}…</p>
-      </div>
-
-      <el-empty v-else description="还没有选择文件" :image-size="80" />
+      <el-empty
+        v-if="!running && entries.length === 0"
+        description="还没有选择文件"
+        :image-size="80"
+      />
     </template>
 
     <template #footer>
@@ -136,6 +153,8 @@ import {
 } from '@/avatar/resolve';
 import { isTauri } from '@/platform';
 import { defaultAvatarUrl } from '@/utils/avatar';
+// 同文件里的 pickFiles 是 Tauri 原生对话框那套，这里是网页版的隐藏 input 版本
+import { pickFiles as pickFilesViaInput } from '@/utils/pickFile';
 
 const props = defineProps<{
   visible: boolean;
@@ -144,8 +163,6 @@ const props = defineProps<{
   person?: Person;
   /** 当前名册，批量匹配时提供工号与姓名索引 */
   roster: Person[];
-  /** 单人模式：外部变更计数，用于强制刷新预览 */
-  revision?: number;
 }>();
 const emit = defineEmits<{
   'update:visible': [value: boolean];
@@ -191,10 +208,26 @@ const matchedCount = computed(
   () => entries.value.filter((e) => !!e.key).length,
 );
 
+/** 进度条百分比：progress 是「已处理条数」，直接当百分比传会显示成 3% 这种值 */
+const progressPercent = computed(() =>
+  pending.value > 0
+    ? Math.min(100, Math.round((progress.value / pending.value) * 100))
+    : 0,
+);
+
 // ---- 单人模式 ----
 
 const singlePreviewUrl = ref('');
 const hasExisting = ref(false);
+
+/**
+ * 预览用的本地版本号。
+ *
+ * 不能依赖父组件的 revision：emit('changed') 触发的是父组件的同步 handler，
+ * 但 props 要等下一轮渲染才更新，本对话框在 emit 之后立刻读到的仍是旧值，
+ * 于是「换照片」算出来的 ?v= 和换之前一样，浏览器命中缓存，一直显示旧图。
+ */
+const singleRevision = ref(0);
 
 const onPreviewError = (event: Event) => {
   const img = event.target as HTMLImageElement;
@@ -204,9 +237,9 @@ const onPreviewError = (event: Event) => {
 async function refreshSingle() {
   if (props.mode !== 'single' || !props.person) return;
   const key = props.person.key;
-  // 加时间戳避免同名文件被浏览器缓存住
-  singlePreviewUrl.value =
-    avatarUrl(key) + (avatarUrl(key) ? `?v=${props.revision ?? 0}` : '');
+  const base = avatarUrl(key);
+  singleRevision.value++;
+  singlePreviewUrl.value = base ? `${base}?v=${singleRevision.value}` : '';
   hasExisting.value = false;
   const path = await avatarPath(key);
   if (path) {
@@ -371,42 +404,27 @@ function applySelection(files: SelectedFile[]) {
 async function pickViaInput(
   multiple: boolean,
 ): Promise<{ name: string; bytes: Uint8Array } | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    if (multiple) {
-      input.multiple = true;
-      input.setAttribute('webkitdirectory', '');
-    }
-    input.style.display = 'none';
-    input.addEventListener('change', () => {
-      const list = Array.from(input.files ?? []);
-      document.body.removeChild(input);
-      if (list.length === 0) {
-        resolve(null);
-        return;
-      }
-      Promise.all(
-        list.map(async (file) => ({
-          name: file.name,
-          bytes: new Uint8Array(await file.arrayBuffer()),
-          file,
-        })),
-      ).then((items) => {
-        if (multiple) {
-          applySelection(
-            items.map((item) => ({ name: item.name, file: item.file })),
-          );
-          webBytes.value = items;
-        } else {
-          resolve(items[0]);
-        }
-      });
-    });
-    document.body.appendChild(input);
-    input.click();
+  const files = await pickFilesViaInput({
+    accept: 'image/*',
+    multiple,
+    directory: multiple,
   });
+  if (files.length === 0) return null;
+
+  const items = await Promise.all(
+    files.map(async (file) => ({
+      name: file.name,
+      bytes: new Uint8Array(await file.arrayBuffer()),
+      file,
+    })),
+  );
+
+  if (multiple) {
+    applySelection(items.map((item) => ({ name: item.name, file: item.file })));
+    webBytes.value = items;
+    return null;
+  }
+  return items[0];
 }
 
 /** 网页版批量：字节与表格分开存，读取留到真正执行时 */

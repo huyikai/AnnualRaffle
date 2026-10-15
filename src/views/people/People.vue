@@ -210,7 +210,6 @@
       :mode="photoMode"
       :person="photoPerson"
       :roster="store.list"
-      :revision="photoRevision"
       @changed="onPhotosChanged"
     />
   </div>
@@ -537,14 +536,7 @@ async function handleRestore() {
       },
     );
     restoreBackup(payload);
-    store.setList(payload.roster);
-    if (payload.prizes.length > 0) store.setPrizes(payload.prizes);
-    store.setPrizeTombstones(payload.prizeTombstones);
-    store.setConfig(payload.config);
-    store.setResult(payload.result);
-    store.setResultMeta(payload.resultMeta);
-    store.setExcludeWinners(payload.excludeWinners);
-    saveRoster(payload.roster);
+    store.applyBackup(payload);
     scheduleSnapshot();
     ElMessage.success('已恢复备份');
   } catch (error) {

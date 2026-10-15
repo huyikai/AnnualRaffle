@@ -209,6 +209,7 @@ import type {
 } from '@/data/importer';
 import type { Person } from '@/data/person';
 import { isTauri } from '@/platform';
+import { pickFiles } from '@/utils/pickFile';
 
 const props = defineProps<{ visible: boolean; roster: Person[] }>();
 const emit = defineEmits<{
@@ -319,21 +320,10 @@ async function pickFile() {
   await pickViaInput();
 }
 
-function pickViaInput(): Promise<void> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv,.txt,text/csv';
-    input.style.display = 'none';
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      document.body.removeChild(input);
-      if (file) await analyzeBuffer(await file.arrayBuffer());
-      resolve();
-    });
-    document.body.appendChild(input);
-    input.click();
-  });
+async function pickViaInput(): Promise<void> {
+  const [file] = await pickFiles({ accept: '.csv,.txt,text/csv' });
+  if (!file) return;
+  await analyzeBuffer(await file.arrayBuffer());
 }
 
 async function onDrop(event: DragEvent) {
