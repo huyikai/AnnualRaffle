@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import {
-  resetApp, performDraw, openResultDialog, getResultCount,
-  injectResults, getStorageData,
+  resetApp,
+  performDraw,
+  openResultDialog,
+  getResultCount,
+  injectResults,
+  getStorageData,
 } from './helpers';
 
 test.describe('结果管理', () => {
@@ -14,7 +18,9 @@ test.describe('结果管理', () => {
     await openResultDialog(page);
     const rows = page.locator('.c-Result .listrow');
     expect(await rows.count()).toBeGreaterThanOrEqual(5);
-    const emptyRows = page.locator('.c-Result .listrow').filter({ hasText: '暂未抽奖' });
+    const emptyRows = page
+      .locator('.c-Result .listrow')
+      .filter({ hasText: '暂未抽奖' });
     expect(await emptyRows.count()).toBeGreaterThan(0);
   });
 
@@ -28,15 +34,23 @@ test.describe('结果管理', () => {
 
   test('删除中奖结果', async ({ page }) => {
     await injectResults(page, {
-      firstPrize: [1004], secondPrize: [], thirdPrize: [],
-      luckyFirst: [], luckySecond: [],
+      firstPrize: ['1004'],
+      secondPrize: [],
+      thirdPrize: [],
+      luckyFirst: [],
+      luckySecond: [],
     });
     await openResultDialog(page);
-    const row = page.locator('.c-Result .listrow').filter({ hasText: '一等奖' });
+    const row = page
+      .locator('.c-Result .listrow')
+      .filter({ hasText: '一等奖' });
     await row.locator('.card').first().click();
     await page.locator('.el-message-box__btns .el-button--primary').click();
     await page.waitForTimeout(500);
-    const result = await getStorageData(page, 'result') as Record<string, number[]>;
-    expect(result.firstPrize).not.toContain(1004);
+    const result = (await getStorageData(page, 'result')) as Record<
+      string,
+      string[]
+    >;
+    expect(result.firstPrize).not.toContain('1004');
   });
 });

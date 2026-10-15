@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { waitForAppReady, resetApp, performDraw, openResultDialog, getResultCount } from './helpers';
+import {
+  waitForAppReady,
+  resetApp,
+  performDraw,
+  openResultDialog,
+  getResultCount,
+} from './helpers';
 
 test.describe('基础抽奖功能', () => {
   test.beforeEach(async ({ page }) => {
@@ -12,7 +18,9 @@ test.describe('基础抽奖功能', () => {
     await expect(page.locator('#tool')).toBeVisible();
     await expect(page.locator('button.con')).toBeVisible();
     await expect(page.locator('button.res')).toBeVisible();
-    await expect(page.locator('#tool .el-button').filter({ hasText: '开始抽奖' })).toBeVisible();
+    await expect(
+      page.locator('#tool .el-button').filter({ hasText: '开始抽奖' }),
+    ).toBeVisible();
   });
 
   test('选择奖项并进行抽奖显示结果', async ({ page }) => {
