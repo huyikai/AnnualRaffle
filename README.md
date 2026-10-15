@@ -1,5 +1,56 @@
 # 年会抽奖系统
 
+## 桌面客户端（Windows / macOS）
+
+年会抽奖现已提供原生桌面客户端，基于 **Tauri v2**，数据全部保存在本机，不依赖网络。
+
+### 下载安装
+
+到 [Releases 页面](https://github.com/huyikai/AnnualRaffle/releases) 下载对应系统的安装包。
+
+> **未签名版本说明**
+> 安装包未做代码签名，首次打开会被系统拦截，这是预期行为：
+> - **macOS**：提示「无法验证开发者」→ **右键点击应用 → 打开** → 再点「打开」
+>   或执行 `xattr -dr com.apple.quarantine /Applications/年会抽奖.app`
+> - **Windows**：SmartScreen 蓝窗 → 点「**更多信息**」→「**仍要运行**」
+
+若安装遇到问题，也可使用 [Pages 网页版](https://huyikai.github.io/AnnualRaffle/) 作为临时备选。
+
+### 功能
+
+- **人员管理**：CSV 上传 / 批量粘贴 / 单人增删改 / 批量启停，支持工号前导零与全角字符
+- **照片头像**：按 `{工号}`、`{工号}-{姓名}` 或 `{姓名}` 自动匹配，导入时校验格式并压缩
+- **12 张预设背景** + 自定义上传，三档适配方式（铺满 / 完整 / 拉伸）
+- **自定义 BGM 与音效**，背景音乐与音效音量分轨控制
+- **全屏演示模式**（F11 进出）：隐藏全部操作入口，避免投屏时误触「重置」
+- **结果导出 CSV**（带 BOM，Excel/WPS 直接打开不乱码）
+- **自动快照**：每次修改后自动滚动保留最近 10 份，崩溃或误操作可恢复
+- **大屏适配**：结果卡字号按视口与人数双因子计算，1080p 到 4K 投影都清晰
+
+### 数据存放位置
+
+| 平台 | 路径 |
+|---|---|
+| macOS | `~/Library/Application Support/com.annualraffle.desktop/` |
+| Windows | `%APPDATA%\com.annualraffle.desktop\` |
+
+其中 `avatars/` 为照片、`backgrounds/` 为自定义背景、`audio/` 为自定义音乐、`backups/` 为自动快照。
+可在「设置 → 关于 → 数据备份」中手动导出备份文件。
+
+### 从源码构建
+
+```bash
+pnpm install
+pnpm tauri:dev      # 开发
+pnpm tauri:build    # 产出 .app / .msi / .exe
+```
+
+Windows 安装包需要在 Windows 上构建（NSIS/WiX 不支持跨平台交叉编译），
+仓库已配置 `.github/workflows/release.yml`，推送 `v*` tag 即自动构建并发布 Release。
+
+---
+
+
 一个基于 Vue 3 + TypeScript 开发的年会抽奖系统，支持3D标签云可视化抽奖、多奖项配置、用户照片展示等功能，适用于企业年会、活动抽奖等场景。
 
 ## 项目特色
@@ -66,6 +117,9 @@
   - 用户名单
   - 照片数据（IndexedDB）
   - 抽奖结果
+
+> ⚠️ 以下「配置用户数据」章节描述的是**旧版构建期名单**的做法，已被上方的运行时人员管理取代。
+> 名单不再写在代码里，也不再需要 `src/config/user.ts`。
 
 ## 技术栈
 
