@@ -1,1 +1,15 @@
-./src/assets/lib/tagcanvas.js
+# 构建产物
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# vendored 第三方库：压缩过的源码，不做代码风格检查
+src/lib/tagcanvas.ts
+src/lib/tagcanvas.types.ts
+
+# 测试产物
+test-results/
+playwright-report/
+
+# 依赖与缓存
+node_modules/

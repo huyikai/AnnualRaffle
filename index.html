@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-    <link rel="icon" href="/favicon.ico">
-    <link
-      rel="stylesheet"
-      href="https://at.alicdn.com/t/font_1594571_5oi8u1hs5fy.css"/>
+    <link rel="icon" href="./favicon.ico">
+    <!-- 原先在此引用了阿里 CDN 的图标字体（font_1594571）。
+         代码中没有任何地方使用该字体类名，Element Plus 2.x 走的是内联 SVG，
+         因此它是一条纯粹的遗留死依赖。对桌面端尤其有害：
+         桌面应用必须能在离线会场正常运行，不能依赖外部 CDN。已移除。 -->
     <title>抽奖</title>
   </head>
   <body>
