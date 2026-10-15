@@ -22,6 +22,8 @@ import {
 } from '@/data/prizes';
 import type { ResultMeta } from '@/storage/result';
 import { recordWins, removeWin } from '@/storage/result';
+import type { BackupPayload } from '@/storage/backup';
+import { saveRoster } from '@/storage/roster';
 import {
   savePrizes,
   savePrizeTombstones,
@@ -193,6 +195,24 @@ export const useLotteryStore = defineStore('lottery', () => {
     savePrizeTombstones(tombstones);
   }
 
+  /**
+   * 用一份备份覆盖内存状态。
+   *
+   * 落盘由调用方先执行 restoreBackup，本方法只负责把同样的内容同步进 store。
+   * 两者必须成对出现：只落盘不更新 store 的话，用户不刷新就继续编辑，
+   * 内存里的旧值会在下一次 commit 时把刚恢复的数据覆盖掉，且全程无提示。
+   */
+  function applyBackup(payload: BackupPayload) {
+    list.value = payload.roster;
+    saveRoster(payload.roster);
+    if (payload.prizes.length > 0) setPrizes(payload.prizes);
+    setPrizeTombstones(payload.prizeTombstones);
+    setConfig(payload.config);
+    setResult(payload.result);
+    setResultMeta(payload.resultMeta);
+    setExcludeWinners(payload.excludeWinners);
+  }
+
   /** 新增自定义奖项（重名时忽略） */
   function addPrize(prize: Prize) {
     if (prizes.value.find((p) => p.name === prize.name)) {
@@ -266,6 +286,7 @@ export const useLotteryStore = defineStore('lottery', () => {
     setList,
     setPrizes,
     setPrizeTombstones,
+    applyBackup,
     addPrize,
     deletePrize,
     renamePrizeByKey,
