@@ -1,15 +1,24 @@
-import type { StorageValue, NewLotteryItem } from '@/types';
+import type { StorageValue } from '@/types';
 import { getLotteryName } from '@/config/lottery';
 
 /**
  * 设置 localStorage 数据
+ *
+ * 写入侧刻意放宽为 unknown：setData 只做 JSON.stringify，
+ * 维护精确的类型联合只会让每加一种数据结构就来改这里一遍。
+ * 读取侧 getData 返回 StorageValue，由调用方按需断言。
+ *
  * @param key 存储键
- * @param value 存储值
+ * @param value 存储值（须可被 JSON.stringify 处理）
  * @throws Error 当存储失败时抛出错误
  */
-export function setData(key: string, value: StorageValue): void {
+export function setData(key: string, value: unknown): void {
   try {
-    const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+    const serialized =
+      typeof value === 'string' ? value : JSON.stringify(value);
+    if (serialized === undefined) {
+      throw new Error('该值无法被序列化');
+    }
     localStorage.setItem(key, serialized);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -63,7 +72,10 @@ export function clearData(): void {
  * @param dataName data 属性名称（不包含 "data-" 前缀）
  * @returns data 属性值，如果元素不存在或属性不存在则返回 undefined
  */
-export function getDomData(element: Element | null, dataName: string): string | undefined {
+export function getDomData(
+  element: Element | null,
+  dataName: string,
+): string | undefined {
   if (!element || !dataName || !element.getAttribute) {
     return undefined;
   }
@@ -75,8 +87,8 @@ export function getDomData(element: Element | null, dataName: string): string | 
  */
 export const configField = 'config'; // 配置数据
 export const resultField = 'result'; // 抽奖结果
-export const newLotteryField = 'newLottery'; // 新增奖项
-export const listField = 'list'; // 名单
+export const rosterField = 'roster'; // 人员名册（v2）
+export const prizesField = 'prizes'; // 全部奖项（v2）
 export const audioMutedField = 'audioMuted'; // 音频静音状态
 export const audioVolumeField = 'audioVolume'; // 音频音量值
 export const excludeWinnersField = 'excludeWinners'; // 全局排除已中奖人员
@@ -87,9 +99,9 @@ export const excludeWinnersField = 'excludeWinners'; // 全局排除已中奖人
  * @returns 奖项显示名称
  */
 export function conversionCategoryName(key: string): string {
-  const newLottery = getData(newLotteryField);
-  const lotteryArray: NewLotteryItem[] = Array.isArray(newLottery) 
-    ? (newLottery as NewLotteryItem[])
+  const prizes = getData(prizesField);
+  const prizeArray = Array.isArray(prizes)
+    ? (prizes as Array<{ key: string; name: string }>)
     : [];
-  return getLotteryName(key, lotteryArray);
+  return getLotteryName(key, prizeArray);
 }

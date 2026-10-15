@@ -1,0 +1,180 @@
+/**
+ * 设计 token 层
+ *
+ * 双表面策略：舞台与管理控制台共用同一套 token 骨架（强调色、圆角刻度、
+ * 间距节奏、z-index 刻度、字阶结构），只分裂表面底色与文字色。
+ *
+ * 相比「全页一个主题」的通用规则，这里的偏离是有理由的：
+ * 那条规则是为滚动式页面写的——用户连续下滑，主题突变会被感知为断裂。
+ * 桌面应用里舞台与管理之间是显式导航（点按钮切换），用户明确知道换了上下文。
+ * 违规风险由两点控制：管理界面必须使用同一套金色强调色；切换点只有导航这一处。
+ *
+ * 详见 docs/design-system.md
+ */
+
+:root {
+  /* ========== 强调色（双表面共享，唯一强调色） ========== */
+  --ar-accent: #e1a857;
+  --ar-accent-hover: #c08e3f;
+  --ar-accent-press: #8a5408;
+  --ar-accent-soft: #f0ce96;
+  /* 压在金色上的前景色，对比度 ≈ 8.6:1（WCAG AAA） */
+  --ar-on-accent: #2a0703;
+
+  /* ========== 舞台表面（深色） ========== */
+  --ar-stage-bg: #5e0f08;
+  --ar-stage-bg-hover: #8f2925;
+  --ar-stage-overlay: rgba(42, 7, 3, 0.72);
+  --ar-on-stage: #f0ce96;
+  --ar-on-stage-muted: #c9a87a;
+  --ar-on-stage-faint: #ccc;
+
+  /* ========== 管理控制台表面（浅色） ========== */
+  --ar-bg: #f5f7fa;
+  --ar-surface: #ffffff;
+  --ar-surface-sunken: #ebeef5;
+  --ar-border: #e4e7ed;
+  --ar-border-strong: #d3d6dc;
+  --ar-text: #303133;
+  --ar-text-regular: #606266;
+  --ar-text-secondary: #909399;
+  --ar-text-disabled: #c0c4cc;
+
+  /* ========== 语义色 ========== */
+  --ar-danger: #e23b32;
+  --ar-danger-soft: #f56c6c;
+  --ar-danger-bg: #fdeeee;
+  --ar-success: #3e8e5a;
+  --ar-warning: #c88a2e;
+
+  /* ========== 圆角：单一刻度 + 成文规则 ==========
+     按钮/输入 4px · 卡片/弹窗 8px · 结果卡 12px · 头像圆形 */
+  --ar-radius-sm: 4px;
+  --ar-radius-md: 8px;
+  --ar-radius-lg: 12px;
+  --ar-radius-full: 999px;
+
+  /* ========== z-index：严格分层，不写任意数值 ========== */
+  --ar-z-base: 0;
+  --ar-z-tagcloud: 1;
+  --ar-z-header: 100;
+  --ar-z-float: 500;
+  --ar-z-dialog: 1000;
+  --ar-z-popover: 1100;
+  --ar-z-messagebox: 1200;
+  --ar-z-toast: 1300;
+  --ar-z-presentation: 2000;
+
+  /* ========== 大屏字阶：视口驱动，人数档位作上限约束 ==========
+     见 docs/design-system.md §3.3 */
+  --ar-display-1: clamp(48px, 6vw, 96px);
+  --ar-display-2: clamp(32px, 4vw, 64px);
+  --ar-body-lg: clamp(20px, 2.2vw, 32px);
+  --ar-ui: 14px;
+}
+
+/* ========== Element Plus 接管 ==========
+   通过其 CSS 变量接管，无需 SCSS 编译。
+   替代原先散落各处的 :deep(...) !important 覆写。 */
+:root {
+  --el-color-primary: var(--ar-accent);
+  --el-color-primary-light-3: var(--ar-accent-hover);
+  --el-color-primary-light-5: var(--ar-accent-hover);
+  --el-color-primary-light-7: var(--ar-accent-soft);
+  --el-color-primary-light-8: var(--ar-accent-soft);
+  --el-color-primary-light-9: var(--ar-accent-soft);
+  --el-color-primary-dark-2: var(--ar-accent-press);
+
+  --el-border-color: var(--ar-border);
+  --el-border-color-light: var(--ar-border);
+  --el-border-color-lighter: var(--ar-border);
+  --el-border-color-extra-light: var(--ar-border);
+
+  --el-text-color-primary: var(--ar-text);
+  --el-text-color-regular: var(--ar-text-regular);
+  --el-text-color-secondary: var(--ar-text-secondary);
+  --el-text-color-placeholder: var(--ar-text-disabled);
+
+  --el-bg-color: var(--ar-surface);
+  --el-bg-color-overlay: var(--ar-surface);
+  --el-fill-color-light: var(--ar-bg);
+  --el-fill-color-lighter: var(--ar-bg);
+  --el-fill-color-blank: var(--ar-surface);
+
+  --el-border-radius-base: var(--ar-radius-sm);
+  --el-border-radius-small: var(--ar-radius-sm);
+}
+
+/* ========== 舞台上的浮层 ==========
+   el-select / el-dropdown 的 popper 会被 teleport 到 body，
+   因此必须写成全局样式：scoped + :deep 匹配不到脱离组件树的节点。
+   原本散落在 App.vue / Tool.vue / LotteryConfig.vue 的 !important 覆写全部收敛到此处。 */
+.tool-select-dropdown,
+.exclude-mode-popper,
+.ar-select-on-stage {
+  --el-bg-color-overlay: var(--ar-stage-bg);
+  --el-bg-color: var(--ar-stage-bg);
+  --el-fill-color-light: var(--ar-stage-bg-hover);
+  --el-fill-color-blank: var(--ar-stage-bg-hover);
+  --el-text-color-regular: var(--ar-on-stage-faint);
+  --el-text-color-primary: var(--ar-accent-soft);
+  --el-border-color-light: var(--ar-stage-bg-hover);
+  --el-border-color-lighter: var(--ar-stage-bg-hover);
+  --el-disabled-text-color: var(--ar-on-stage-muted);
+}
+
+.tool-select-dropdown,
+.exclude-mode-popper,
+.ar-select-on-stage {
+  border-color: var(--ar-stage-bg-hover);
+  z-index: var(--ar-z-popover);
+}
+
+.ar-select-on-stage .el-select-dropdown__item.selected {
+  color: var(--ar-on-accent);
+}
+
+/* 预设名单失效提醒小红点：无文字，悬停显示明细，避免在大屏暴露信息 */
+.preset-alert-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: var(--ar-z-base);
+  width: 9px;
+  height: 9px;
+  border-radius: var(--ar-radius-full);
+  background-color: var(--ar-danger-soft);
+  /* 原为霓虹外发光，改为内描边，避免大屏上的光晕干扰 */
+  box-shadow: inset 0 0 0 1px rgba(253, 238, 238, 0.6);
+  animation: preset-alert-pulse 1.6s ease-in-out 3;
+}
+
+/* 有意保留无限循环的样式定义，但实例只播放 3 次后停止
+   （见上方 animation-iteration-count），避免大屏持续闪烁 */
+@keyframes preset-alert-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+}
+
+.preset-issue-line {
+  line-height: 1.6;
+}
+
+/* ========== 减弱动效 ==========
+   CSS 侧只能停掉 CSS 动画。
+   TagCanvas 是 JS 的 rAF 循环，media query 管不到它，
+   必须在 useTagCanvas 里显式处理 SetSpeed([0, 0])。 */
+@media (prefers-reduced-motion: reduce) {
+  .preset-alert-dot,
+  .bounce-enter-active,
+  .bounce-leave-active {
+    animation: none;
+  }
+}

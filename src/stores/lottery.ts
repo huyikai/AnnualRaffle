@@ -1,26 +1,40 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import {
   setData,
   resultField,
-  newLotteryField,
-  listField,
   configField,
   excludeWinnersField,
 } from '@/helper/index';
 import type { LotteryConfigType, ResultType } from '@/config/lottery';
-import { defaultConfig, defaultResult, getLotteryCount, getLotteryPreset } from '@/config/lottery';
-import type { UserItem } from '@/config/userLoader';
-import type { PhotoItem } from '@/helper/db';
-import type { NewLotteryItem } from '@/types';
+import {
+  defaultConfig,
+  defaultResult,
+  getLotteryCount,
+  getLotteryPreset,
+} from '@/config/lottery';
+import type { Person } from '@/data/person';
+import { deriveExcluded } from '@/data/person';
+import type { Prize, PrizeTombstones } from '@/data/prizes';
+import {
+  removePrize as removePrizeFrom,
+  renamePrize as renamePrizeIn,
+} from '@/data/prizes';
+import type { ResultMeta } from '@/storage/result';
+import { recordWins, removeWin } from '@/storage/result';
+import {
+  savePrizes,
+  savePrizeTombstones,
+  builtinPrizes,
+} from '@/storage/prizes';
 
 // 默认配置常量
 const DEFAULT_LOTTERY_NAME = '年会抽奖';
 const DEFAULT_LOTTERY_NUMBER = 132;
 
 // 扩展的抽奖配置类型
-type ExtendedLotteryConfig = LotteryConfigType & { 
-  name?: string; 
+type ExtendedLotteryConfig = LotteryConfigType & {
+  name?: string;
   number?: number;
 };
 
@@ -30,35 +44,45 @@ export const useLotteryStore = defineStore('lottery', () => {
    * @returns 包含默认名称、数量和奖项配置的对象
    */
   function createDefaultConfig(): ExtendedLotteryConfig {
-    return Object.assign(
-      {},
-      defaultConfig,
-      {
-        name: DEFAULT_LOTTERY_NAME,
-        number: DEFAULT_LOTTERY_NUMBER,
-      }
-    ) as ExtendedLotteryConfig;
+    return Object.assign({}, defaultConfig, {
+      name: DEFAULT_LOTTERY_NAME,
+      number: DEFAULT_LOTTERY_NUMBER,
+    }) as ExtendedLotteryConfig;
   }
 
   // ========== State ==========
   /** 抽奖配置（包含名称、数量和奖项配置） */
   const config = ref<ExtendedLotteryConfig>(createDefaultConfig());
-  /** 抽奖结果 */
+  /** 抽奖结果（工号数组，算法层消费） */
   const result = ref<ResultType>({ ...defaultResult });
-  /** 新增的自定义奖项列表 */
-  const newLottery = ref<NewLotteryItem[]>([]);
-  /** 参与抽奖的用户列表 */
-  const list = ref<UserItem[]>([]);
-  /** 用户照片列表 */
-  const photos = ref<PhotoItem[]>([]);
+  /** 中奖快照（抽奖当时的姓名与时间，展示层消费） */
+  const resultMeta = ref<ResultMeta>({});
+  /** 全部奖项（内置 + 自定义） */
+  const prizes = ref<Prize[]>(builtinPrizes());
+  /** 已删除奖项的 key → 名称，用于把悬空的参与限制显示成「已失效：xxx」 */
+  const prizeTombstones = ref<PrizeTombstones>({});
+  /** 参与抽奖的人员名册 */
+  const list = ref<Person[]>([]);
   /** 全局排除已中奖人员 */
   const excludeWinners = ref(true);
+
+  // ========== Getters ==========
+  /**
+   * 全局排除人员，由名册的 enabled=false 派生。
+   *
+   * 旧版 excludedUsers 是构建期静态 import，从不落盘，用户改了排除设置重启就还原。
+   * 现在改为从名册派生，随名册一起持久化。
+   */
+  const excludedUsers = computed(() => deriveExcluded(list.value));
+
+  /** 参与抽奖的人数（enabled=true） */
+  const activeCount = computed(
+    () => list.value.filter((p) => p.enabled).length,
+  );
 
   // ========== Actions ==========
   /**
    * 获取指定奖项的数量
-   * @param key 奖项键名
-   * @returns 奖项数量
    */
   function getCount(key: string): number {
     return getLotteryCount(config.value, key);
@@ -66,10 +90,8 @@ export const useLotteryStore = defineStore('lottery', () => {
 
   /**
    * 获取指定奖项的预设名单
-   * @param key 奖项键名
-   * @returns 预设名单（逗号分隔的用户ID字符串），如果不存在则返回 undefined
    */
-  function getPreset(key: string): string | undefined {
+  function getPreset(key: string): string[] | undefined {
     return getLotteryPreset(config.value, key);
   }
 
@@ -81,116 +103,172 @@ export const useLotteryStore = defineStore('lottery', () => {
     setData(excludeWinnersField, value);
   }
 
-  /**
-   * 清除配置和新增奖项
-   */
+  /** 清除配置和奖项 */
   function setClearConfig() {
     config.value = createDefaultConfig();
-    newLottery.value = [];
+    prizes.value = builtinPrizes();
+    prizeTombstones.value = {};
     excludeWinners.value = true;
   }
 
-  /**
-   * 清除用户列表
-   */
+  /** 清除人员名单 */
   function setClearList() {
     list.value = [];
   }
 
-  /**
-   * 清除照片列表
-   */
-  function setClearPhotos() {
-    photos.value = [];
-  }
-
-  /**
-   * 清除抽奖结果
-   */
+  /** 清除抽奖结果（含快照） */
   function setClearResult() {
     result.value = { ...defaultResult };
+    resultMeta.value = {};
   }
 
-  /**
-   * 清除所有状态数据
-   */
+  /** 清除所有状态数据 */
   function setClearStore() {
     config.value = createDefaultConfig();
     result.value = { ...defaultResult };
-    newLottery.value = [];
+    resultMeta.value = {};
+    prizes.value = builtinPrizes();
+    prizeTombstones.value = {};
     list.value = [];
-    photos.value = [];
     excludeWinners.value = true;
   }
 
-  /**
-   * 设置抽奖配置
-   * @param newConfig 新的配置对象
-   */
+  /** 设置抽奖配置 */
   function setConfig(newConfig: ExtendedLotteryConfig) {
     config.value = newConfig;
     setData(configField, config.value);
   }
 
-  /**
-   * 设置抽奖结果
-   * @param newResult 新的结果对象，默认为空结果
-   */
+  /** 设置抽奖结果（工号数组） */
   function setResult(newResult: ResultType = { ...defaultResult }) {
     result.value = newResult;
-    setData(resultField, result.value);
+    setData(resultField, newResult);
+  }
+
+  /** 设置中奖快照 */
+  function setResultMeta(newMeta: ResultMeta) {
+    resultMeta.value = newMeta;
   }
 
   /**
-   * 添加新的自定义奖项
-   * @param item 奖项项（如果名称已存在则不会重复添加）
+   * 记录一次中奖：同时写入工号数组与姓名快照
    */
-  function setNewLottery(item: NewLotteryItem) {
-    if (newLottery.value.find((lottery) => lottery.name === item.name)) {
-      return;
-    }
-    newLottery.value.push(item);
-    setData(newLotteryField, newLottery.value);
+  function recordWin(category: string, keys: string[]) {
+    const next = recordWins(
+      result.value,
+      resultMeta.value,
+      category,
+      keys,
+      list.value,
+    );
+    result.value = next.result;
+    resultMeta.value = next.meta;
+    setData(resultField, next.result);
   }
 
   /**
-   * 设置用户列表
-   * @param newList 新的用户列表
+   * 移除一条中奖记录，结果与快照同步清理
    */
-  function setList(newList: UserItem[]) {
+  function removeWinner(category: string, key: string) {
+    const next = removeWin(result.value, resultMeta.value, category, key);
+    result.value = next.result;
+    resultMeta.value = next.meta;
+    setData(resultField, next.result);
+  }
+
+  /** 设置人员名册 */
+  function setList(newList: Person[]) {
     list.value = newList;
-    setData(listField, list.value);
+  }
+
+  /** 设置奖项列表 */
+  function setPrizes(newPrizes: Prize[]) {
+    prizes.value = newPrizes;
+    savePrizes(newPrizes);
+  }
+
+  /** 设置已删除奖项的名称映射 */
+  function setPrizeTombstones(tombstones: PrizeTombstones) {
+    prizeTombstones.value = tombstones;
+    savePrizeTombstones(tombstones);
+  }
+
+  /** 新增自定义奖项（重名时忽略） */
+  function addPrize(prize: Prize) {
+    if (prizes.value.find((p) => p.name === prize.name)) {
+      return false;
+    }
+    setPrizes([...prizes.value, prize]);
+    return true;
   }
 
   /**
-   * 设置照片列表
-   * @param newPhotos 新的照片列表
+   * 删除奖项，同时记录墓碑，供悬空的参与限制显示为「已失效：xxx」
    */
-  function setPhotos(newPhotos: PhotoItem[]) {
-    photos.value = newPhotos;
+  function deletePrize(prizeKey: string) {
+    const { prizes: nextPrizes, tombstones } = removePrizeFrom(
+      prizes.value,
+      prizeTombstones.value,
+      prizeKey,
+    );
+    setPrizes(nextPrizes);
+    setPrizeTombstones(tombstones);
+  }
+
+  /**
+   * 重命名奖项。key 不变，因此人员的参与限制自动跟随
+   */
+  function renamePrizeByKey(prizeKey: string, name: string) {
+    setPrizes(renamePrizeIn(prizes.value, prizeKey, name));
+  }
+
+  /** 恢复被删除的内置奖项 */
+  function restoreBuiltinPrizes() {
+    const existing = new Set(prizes.value.map((p) => p.key));
+    const missing = builtinPrizes().filter((p) => !existing.has(p.key));
+    if (missing.length > 0) {
+      setPrizes([...prizes.value, ...missing]);
+    }
+    return missing.length;
+  }
+
+  /** 奖项名称查询 */
+  function getPrizeName(prizeKey: string): string {
+    return prizes.value.find((p) => p.key === prizeKey)?.name ?? '';
   }
 
   return {
     // State
     config,
     result,
-    newLottery,
+    resultMeta,
+    prizes,
+    prizeTombstones,
     list,
-    photos,
     excludeWinners,
+    // Getters
+    excludedUsers,
+    activeCount,
     // Actions
     getCount,
     getPreset,
+    getPrizeName,
+    setExcludeWinners,
     setClearConfig,
     setClearList,
-    setClearPhotos,
     setClearResult,
     setClearStore,
     setConfig,
     setResult,
-    setNewLottery,
+    setResultMeta,
+    recordWin,
+    removeWinner,
     setList,
-    setPhotos,
-    setExcludeWinners,
+    setPrizes,
+    setPrizeTombstones,
+    addPrize,
+    deletePrize,
+    renamePrizeByKey,
+    restoreBuiltinPrizes,
   };
 });

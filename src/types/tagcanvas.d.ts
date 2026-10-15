@@ -28,7 +28,7 @@ declare global {
           offsetY?: number;
           minBrightness?: number;
           lock?: boolean;
-        }
+        },
       ) => void;
       Reload: (canvasId: string) => void;
       SetSpeed: (canvasId: string, speed: number[]) => void;
@@ -37,4 +37,3 @@ declare global {
 }
 
 export {};
-

@@ -32,7 +32,8 @@ body {
   height: 100% !important;
 }
 
-/* 确保 MessageBox 显示在 Dialog 之上（Dialog 最高 z-index 为 10250） */
-.el-overlay.is-message-box {
-  z-index: 11000 !important;
-}
+/* 注：原先此处有 `.el-overlay.is-message-box { z-index: 11000 !important }` 的补丁，
+   用来把 MessageBox 顶到我们硬编码的高 z-index 弹窗之上。
+   现在层级统一收敛到 design/tokens.css 的 --ar-z-* 刻度：
+   应用自身的 chrome 全部 < 1000，Element Plus 浮层从 2000 起由其自身计数与 DOM 顺序接管，
+   因此不再需要这条补丁。 */

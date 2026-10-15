@@ -34,25 +34,37 @@ export const TAG_CANVAS_CONFIG = {
   /** Tags 容器 ID */
   TAGS_ID: 'tags',
   /** Canvas 顶部偏移 */
-  CANVAS_TOP_OFFSET: '-20px'
+  CANVAS_TOP_OFFSET: '-20px',
 } as const;
 
 /**
- * 字体大小配置
+ * 结果卡字号分档
+ *
+ * 命名方向：人数越少，结果卡上的字需要越大。
+ * 旧版把这四档命名为 SMALL/MEDIUM/LARGE/DEFAULT，与实际取值方向相反
+ * （`SMALL: '100px'` 其实是最大值），是明确的维护陷阱，已重命名。
+ *
+ * 尺寸一律用数字，使用处自行拼 `px`——常量用了 `as const`，
+ * 若存字符串会把字面量类型锁死，后续做 min() 计算会报类型错误。
  */
 export const FONT_SIZE_CONFIG = {
-  /** 默认字体大小 */
-  DEFAULT: '30px',
-  /** 小于100时的字体大小 */
-  SMALL: '100px',
-  /** 小于1000时的字体大小 */
-  MEDIUM: '80px',
-  /** 小于10000时的字体大小 */
-  LARGE: '60px',
-  /** 阈值 */
-  THRESHOLD_100: 100,
-  THRESHOLD_1000: 1000,
-  THRESHOLD_10000: 10000
+  /** 人数 ≤ XTRA_LARGE_POOL 时的字号上限 */
+  XTRA_LARGE: 100,
+  /** 人数 ≤ MEDIUM_POOL 时 */
+  LARGE: 80,
+  /** 人数超过 MEDIUM_POOL 时 */
+  MEDIUM: 60,
+  /** 人数档位阈值 */
+  XTRA_LARGE_POOL: 100,
+  MEDIUM_POOL: 1000,
+  LARGE_POOL: 10000,
+  /**
+   * 视口系数：1280px 宽时上限 48px，按宽度等比放大。
+   * 与人数档位取 min —— 只看任一因子都会在另一种极端下失效。
+   */
+  VIEWPORT_BASE: 48,
+  /** 字号下限，防止窄窗口下不可读 */
+  MIN_PX: 28,
 } as const;
 
 /**
@@ -64,7 +76,7 @@ export const INIT_DELAY = {
   /** 重试延迟 */
   RETRY: 500,
   /** Reload 失败后重试延迟 */
-  RELOAD_RETRY: 100
+  RELOAD_RETRY: 100,
 } as const;
 
 /**
@@ -78,7 +90,7 @@ export const LOTTERY_MODE = {
   /** 抽取5人 */
   FIVE: 5,
   /** 自定义数量 */
-  CUSTOM: 99
+  CUSTOM: 99,
 } as const;
 
 /**
@@ -92,7 +104,7 @@ export const DEFAULT_CONFIG = {
   /** 默认模式 */
   DEFAULT_MODE: 0,
   /** 默认全局排除已中奖人员 */
-  DEFAULT_EXCLUDE_WINNERS: true
+  DEFAULT_EXCLUDE_WINNERS: true,
 } as const;
 
 /**
@@ -102,7 +114,7 @@ export const LOTTERY_TIMING = {
   /** 最小抽奖运行时长（毫秒），防止误触立即停止 */
   MIN_DRAW_DURATION: 1000,
   /** 按钮点击节流间隔（毫秒），防止双击 */
-  BUTTON_THROTTLE: 300
+  BUTTON_THROTTLE: 300,
 } as const;
 
 /**
@@ -116,5 +128,5 @@ export const AUDIO_CONFIG = {
   /** localStorage 存储键名 - 静音状态 */
   STORAGE_KEY_MUTED: 'audioMuted',
   /** localStorage 存储键名 - 音量值 */
-  STORAGE_KEY_VOLUME: 'audioVolume'
+  STORAGE_KEY_VOLUME: 'audioVolume',
 } as const;
