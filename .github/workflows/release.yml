@@ -39,17 +39,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
+      # 顺序要紧：actions/setup-node 带 cache: 'pnpm' 时会先执行
+      # `pnpm store path` 定位缓存目录，pnpm 必须已经装好，否则报
+      # "Unable to locate executable file: pnpm"。
+      # 见 https://github.com/pnpm/action-setup#usage
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           # 版本取自 package.json 的 packageManager 字段，不在这里硬编码
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
 
       # 手动触发时，tauri-action 需要目标 tag 已存在于仓库中，否则无法创建 Release
       - name: Verify tag exists (manual dispatch only)

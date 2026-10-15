@@ -22,17 +22,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
+      # 顺序要紧：actions/setup-node 带 cache: 'pnpm' 时会先执行
+      # `pnpm store path` 定位缓存目录，pnpm 必须已经装好，否则报
+      # "Unable to locate executable file: pnpm"。
+      # 见 https://github.com/pnpm/action-setup#usage
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           # 版本取自 package.json 的 packageManager 字段，不在这里硬编码，
           # 避免 CI 与仓库的 pnpm 版本再次漂移（本仓库 lockfile 为 v9.0，需 pnpm 9+）
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+          - name: Setup Node.js
+            uses: actions/setup-node@v4
+            with:
+              node-version: '22'
+              cache: 'pnpm'
 
       - name: Get pnpm store directory
         shell: bash

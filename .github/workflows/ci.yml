@@ -23,16 +23,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
+      # 顺序要紧：actions/setup-node 带 cache: 'pnpm' 时会先执行
+      # `pnpm store path` 定位缓存目录，pnpm 必须已经装好，否则报
+      # "Unable to locate executable file: pnpm"。
+      # 见 https://github.com/pnpm/action-setup#usage
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -83,16 +87,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
+      # 顺序要紧：actions/setup-node 带 cache: 'pnpm' 时会先执行
+      # `pnpm store path` 定位缓存目录，pnpm 必须已经装好，否则报
+      # "Unable to locate executable file: pnpm"。
+      # 见 https://github.com/pnpm/action-setup#usage
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
