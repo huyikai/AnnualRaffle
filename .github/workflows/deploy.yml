@@ -28,9 +28,10 @@ jobs:
           node-version: '20'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          # 版本取自 package.json 的 packageManager 字段，不在这里硬编码，
+          # 避免 CI 与仓库的 pnpm 版本再次漂移（本仓库 lockfile 为 v9.0，需 pnpm 9+）
           run_install: false
 
       - name: Get pnpm store directory
@@ -48,9 +49,10 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
-      - name: Create user.ts for build
-        run: cp src/config/user.example.ts src/config/user.ts
+
+      # 原先这里有一步 `cp src/config/user.example.ts src/config/user.ts`，
+      # 用于在构建期注入名单。名单已改为运行时数据（localStorage / 应用数据目录），
+      # 构建期不再需要 user.ts，该步骤已移除。
 
       - name: Build
         run: pnpm build

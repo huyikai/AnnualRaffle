@@ -1,0 +1,122 @@
+name: Release
+
+# 推 tag 发布：git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - 'v*'
+  # 手动触发（GitHub 页面 Actions → Release → Run workflow），tag 留空则用当前分支的版本号
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的版本号，如 v1.0.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: windows-latest
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    name: ${{ matrix.platform }}
+
+    # macOS 与 Windows 两个 job 会同时向同一个 tag 创建/更新 Release。
+    # 不加这一段时谁先谁不确定，撞上「已存在」会让其中一个失败。
+    concurrency:
+      group: release-${{ github.event.inputs.tag || github.ref_name }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # 版本取自 package.json 的 packageManager 字段，不在这里硬编码
+          run_install: false
+
+      # 手动触发时，tauri-action 需要目标 tag 已存在于仓库中，否则无法创建 Release
+      - name: Verify tag exists (manual dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          git fetch origin --tags
+          if ! git rev-parse -q --verify "refs/tags/${{ inputs.tag }}" >/dev/null; then
+            echo "::error::标签 ${{ inputs.tag }} 不存在。请先执行 git tag ${{ inputs.tag }} && git push origin ${{ inputs.tag }}"
+            exit 1
+          fi
+
+      # Rust 工具链。macOS 已经自带，但显式声明可避免 runner 镜像变更导致构建失败。
+      # targets 必须显式列出：runner 是 arm64，只装宿主 target 的话
+      # --target universal-apple-darwin 会缺 x86_64 std 而失败。
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      # Linux 需要装 WebKitGTK；本项目暂不发 Linux 包，保留注释
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 校验版本号一致
+        # 四处版本号任一漂移都会导致「Release 显示 1.0.0 但包内是 0.9.0」这类问题，
+        # 在打 tag 之前就拦住。
+        run: |
+          P=$(node -p "require('./package.json').version")
+          T=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          C=$(grep -m1 '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          R=$(grep -m1 "APP_VERSION = " src/config/release.ts | cut -d"'" -f2)
+          echo "package.json=$P  tauri.conf.json=$T  Cargo.toml=$C  release.ts=$R"
+          if [ "$P" != "$T" ] || [ "$P" != "$C" ] || [ "$P" != "$R" ]; then
+            echo "::error::四处版本号不一致，请同步后再打 tag"
+            exit 1
+          fi
+          echo "✅ 版本号一致：$P"
+
+      - name: Build and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 未签名构建：不需要 TAURI_SIGNING_PRIVATE_KEY
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: '年会抽奖 ${{ github.event.inputs.tag || github.ref_name }}'
+          releaseBody: |
+            ## 安装说明（未签名版本）
+
+            ### macOS
+            1. 下载 `.app.tar.gz` 或 `.dmg`
+            2. 首次打开会提示「无法验证开发者」——这是未签名应用的正常现象
+            3. **右键点击应用 → 打开**，再点「打开」
+            4. 或在终端执行：`xattr -dr com.apple.quarantine /Applications/年会抽奖.app`
+
+            ### Windows
+            1. 下载 `.msi` 或 `.exe`（NSIS）
+            2. SmartScreen 弹窗点「更多信息」→「仍要运行」
+
+            ### 网页版
+            若安装遇到问题，可访问 Pages 版本作为临时备选。
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

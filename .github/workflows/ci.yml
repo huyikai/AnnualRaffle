@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+    # tag 由 release.yml 负责，这里不重复跑
+    tags-ignore: ['v*']
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: 类型检查 / 单元测试 / 构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 代码风格检查
+        # 用 lint:check（不带 --fix）——CI 里不应该改写工作区
+        run: pnpm lint:check
+
+      - name: 类型检查
+        # src/lib/tagcanvas.ts 是 vendored 的第三方库，本身有数百条历史类型错误，
+        # 与本仓库代码无关。这里只对本仓库代码做类型门禁。
+        run: |
+          set -o pipefail
+          npx vue-tsc --noEmit 2>&1 | tee /tmp/tsc.log || true
+          if grep -E '^[a-zA-Z].*error' /tmp/tsc.log | grep -v 'src/lib/tagcanvas.ts'; then
+            echo "::error::存在本仓库的类型错误"
+            exit 1
+          fi
+          echo "✅ 本仓库代码类型检查通过"
+
+      - name: 单元测试
+        run: pnpm test:run
+
+      - name: 构建 · 网页版
+        # base 必须是 /AnnualRaffle，GitHub Pages 依赖子路径
+        run: |
+          pnpm build
+          grep -q '/AnnualRaffle/assets/' dist/index.html || {
+            echo "::error::网页版构建产物路径不对：$(grep -o 'src=\"[^\"]*\"' dist/index.html | head -3)"
+            exit 1
+          }
+          echo "✅ 网页版构建路径正确"
+
+      - name: 构建 · 桌面版
+        # base 必须是 ./，Tauri 从 tauri://localhost 加载，绝对路径会白屏
+        run: |
+          pnpm build:tauri
+          grep -q 'src="\./assets/' dist/index.html || {
+            echo "::error::桌面版构建产物路径不对：$(grep -o 'src=\"[^\"]*\"' dist/index.html | head -3)"
+            exit 1
+          }
+          echo "✅ 桌面版构建路径正确"
+
+  e2e:
+    name: 端到端测试
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Cache Playwright report
+        uses: actions/cache@v4
+        with:
+          path: |
+            playwright-report/
+            test-results/
+          key: playwright-${{ github.sha }}
+          restore-keys: playwright-
+
+      - name: Run e2e
+        run: pnpm test:e2e
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
