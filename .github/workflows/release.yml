@@ -23,8 +23,17 @@ jobs:
         include:
           - platform: macos-latest
             args: --target universal-apple-darwin
+          # Windows 只出 NSIS 的 .exe，不出 .msi。
+          #
+          # MSI 走 WiX Toolset，最后一步的 light.exe 依赖 VBScript 运行时。
+          # Tauri 文档说遇到「failed to run light.exe」要去启用 VBSCRIPT 可选功能，
+          # 但那条路已经不通了：windows-latest 镜像上这个特性被彻底移除，
+          # Enable-WindowsOptionalFeature 直接报 "Feature name VBSCRIPT is unknown"。
+          # NSIS 不经过 WiX，不受这个限制。
+          # 对本项目影响不大——产物是未签名的，.msi 同样会被 SmartScreen 拦，
+          # 而且未签名 .msi 安装还要求管理员权限，.exe 对用户反而更省事。
           - platform: windows-latest
-            args: ''
+            args: --bundles nsis
 
     runs-on: ${{ matrix.platform }}
     name: ${{ matrix.platform }}
@@ -93,22 +102,6 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      # WiX 的 light.exe（MSI 打包的最后一步）依赖 VBScript 运行时，
-      # 而 GitHub 的 windows-latest 镜像没有启用这个已被微软弃用的可选功能。
-      # 不开的话 Rust 编译能过、MSI 链接那一步会以
-      # 「failed to run light.exe」失败，且日志里不给任何原因。
-      # Tauri 官方文档把这条列为 MSI 打包的前置条件。
-      - name: Enable VBSCRIPT for MSI bundling
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $feature = Get-WindowsOptionalFeature -Online -FeatureName VBSCRIPT
-          if ($feature.State -ne 'Enabled') {
-            Write-Host "VBSCRIPT 状态: $($feature.State)，正在启用…"
-            Enable-WindowsOptionalFeature -Online -FeatureName VBSCRIPT -All -NoRestart | Out-Null
-          }
-          (Get-WindowsOptionalFeature -Online -FeatureName VBSCRIPT).State
-
       - name: 校验版本号一致
         # shell 必须显式指定。GitHub 在 Windows runner 上默认用 PowerShell，
         # 下面的 POSIX 语法会被 ParserError 拦下——这个步骤从加进来起就没带 shell，
@@ -154,8 +147,9 @@ jobs:
             4. 或在终端执行：`xattr -dr com.apple.quarantine /Applications/年会抽奖.app`
 
             ### Windows
-            1. 下载 `.msi` 或 `.exe`（NSIS）
+            1. 下载 `_setup.exe`（NSIS 安装包，双击安装）
             2. SmartScreen 弹窗点「更多信息」→「仍要运行」
+            3. 本项目不提供 `.msi`：MSI 依赖的 WiX 在当前 CI 镜像上无法运行，详见构建日志
 
             ### 网页版
             若安装遇到问题，可访问 Pages 版本作为临时备选。
