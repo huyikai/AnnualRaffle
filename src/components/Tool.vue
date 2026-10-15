@@ -139,6 +139,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   clearData,
   removeData,
+  setData,
   configField,
   resultField,
 } from '@/helper/index';
@@ -148,6 +149,7 @@ import type { LotteryForm } from '@/types';
 import { ResetType } from '@/types';
 import { getLotteryCount, getPresetIssues } from '@/config/lottery';
 import { rosterField } from '@/storage/roster';
+import { SCHEMA_VERSION, schemaVersionField } from '@/storage/migrate';
 
 interface Props {
   running: boolean;
@@ -236,6 +238,10 @@ const resetConfig = () => {
       switch (type) {
         case ResetType.ALL:
           clearData();
+          // clearData 会把 schemaVersion 一起抹掉。下次刷新时 migrateSchema
+          // 看到「版本 < 2 且没有旧 list」会判定为首次启动，重新灌入
+          // 152 条示例数据——重置等于白做。手动补回当前版本号。
+          setData(schemaVersionField, SCHEMA_VERSION);
           store.setClearStore();
           break;
         case ResetType.CONFIG:
