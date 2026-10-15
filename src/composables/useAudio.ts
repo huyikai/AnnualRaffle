@@ -112,49 +112,118 @@ const applyVolumes = () => {
   if (beginSoundAudio) beginSoundAudio.muted = isMuted.value;
 };
 
-const initAudio = () => {
-  if (bgMusicAudio && beginSoundAudio) return;
-
-  bgMusicAudio = new Audio(bgmSourceUrl());
-  bgMusicAudio.loop = true;
-
-  beginSoundAudio = new Audio(sfxSourceUrl());
-
-  bgMusicAudio.addEventListener('error', () =>
-    console.error('背景音乐加载失败，回退到内置音乐'),
-  );
-  beginSoundAudio.addEventListener('error', () =>
-    console.error('音效加载失败，回退到内置音效'),
-  );
-
-  applyVolumes();
-};
-
-/** 自定义音频加载失败时静默回退到内置资源，避免年会现场突然没声音 */
+/**
+ * 自定义音频加载失败时静默回退到内置资源，避免年会现场突然没声音。
+ *
+ * 挂在 initAudio 而不是 init：init 全项目没有调用点，挂在 init 等于没挂。
+ *
+ * 用元素上的标记而不是 { once: true }，是为了同时兼顾两件事：
+ *   - 内置资源自己加载失败时不再递归回退，否则会陷入「加载→失败→回退」死循环
+ *   - 之后用户再换一份自定义音频，失败时依然有保护（once 会在第一次用掉后消失）
+ *
+ * 这里刻意不比较 audio.src：HTMLMediaElement.src 返回的是解析后的绝对 URL，
+ * 跟这里传入的相对/构建期路径永远不相等，拿它做判断会误判成「不是内置资源」。
+ */
 const attachFallback = (
   audio: HTMLAudioElement,
   builtinUrl: string,
   label: string,
 ) => {
-  audio.addEventListener(
-    'error',
-    () => {
-      if (audio.src !== builtinUrl) {
-        console.warn(`[audio] ${label}加载失败，已回退到内置资源`);
-        audio.src = builtinUrl;
-      }
-    },
-    { once: true },
-  );
+  audio.addEventListener('error', () => {
+    if (audio.dataset.fallbackApplied === '1') return;
+    audio.dataset.fallbackApplied = '1';
+    console.warn(`[audio] ${label}加载失败，已回退到内置资源`);
+    audio.src = builtinUrl;
+  });
+};
+
+/** 换上一份新的自定义音频时，把回退保护重新装上 */
+const resetFallback = (audio: HTMLAudioElement | null) => {
+  if (audio) delete audio.dataset.fallbackApplied;
+};
+
+const initAudio = () => {
+  if (bgMusicAudio && beginSoundAudio) return;
+
+  if (!bgMusicAudio) {
+    bgMusicAudio = new Audio(bgmSourceUrl());
+    bgMusicAudio.loop = true;
+    attachFallback(bgMusicAudio, bgMusicUrl, '自定义背景音乐');
+  }
+
+  if (!beginSoundAudio) {
+    beginSoundAudio = new Audio(sfxSourceUrl());
+    attachFallback(beginSoundAudio, beginSoundUrl, '自定义音效');
+  }
+
+  applyVolumes();
 };
 
 const init = () => {
   initAudio();
-  if (bgMusicAudio) bgMusicAudio.src = bgmSourceUrl();
-  if (beginSoundAudio) beginSoundAudio.src = sfxSourceUrl();
-  attachFallback(bgMusicAudio!, bgMusicUrl, '自定义背景音乐');
-  attachFallback(beginSoundAudio!, beginSoundUrl, '自定义音效');
   applyVolumes();
+};
+
+// ---------- 试听 ----------
+
+/** BGM 试听时长；音效传 null 表示播完为止 */
+const PREVIEW_BGM_MS = 5000;
+
+let previewAudio: HTMLAudioElement | null = null;
+let previewTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * 停止正在播放的试听。
+ *
+ * 单独暴露出来是为了让设置页在卸载时调用——试听是「一次性」音频，
+ * 不随组件销毁而停止的话，离开设置页后音乐会继续在后台放。
+ */
+const stopPreview = () => {
+  if (previewTimer) {
+    clearTimeout(previewTimer);
+    previewTimer = null;
+  }
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+    previewAudio = null;
+  }
+};
+
+/**
+ * 播放一段试听。
+ *
+ * 复用同一个实例并先停掉上一个：连点「试听」不会叠出多份音乐。
+ */
+const playPreview = async (
+  url: string,
+  volume: number,
+  autoStopMs: number | null,
+) => {
+  stopPreview();
+  const audio = new Audio(url);
+  audio.volume = volume;
+  previewAudio = audio;
+
+  const release = () => {
+    if (previewAudio === audio) previewAudio = null;
+  };
+
+  if (autoStopMs === null) {
+    audio.addEventListener('ended', release, { once: true });
+  } else {
+    previewTimer = setTimeout(() => {
+      previewTimer = null;
+      stopPreview();
+    }, autoStopMs);
+  }
+
+  try {
+    await audio.play();
+  } catch (error) {
+    console.error('试听失败:', error);
+    release();
+  }
 };
 
 const playBackgroundMusic = async () => {
@@ -241,6 +310,7 @@ export function useAudio() {
     saveAudioSettings();
     if (bgMusicAudio) {
       const wasPlaying = !bgMusicAudio.paused;
+      resetFallback(bgMusicAudio);
       bgMusicAudio.src = bgmSourceUrl();
       bgMusicAudio.load();
       if (wasPlaying) void playBackgroundMusic();
@@ -254,38 +324,22 @@ export function useAudio() {
     customSfx.value = fileName;
     saveAudioSettings();
     if (beginSoundAudio) {
+      resetFallback(beginSoundAudio);
       beginSoundAudio.src = sfxSourceUrl();
       beginSoundAudio.load();
     }
   };
 
   /** 试听当前 BGM（设置页用，不受静音状态影响） */
-  const previewBgm = async () => {
-    const audio = new Audio(bgmSourceUrl());
-    audio.volume = bgmVolume.value / 100;
-    try {
-      await audio.play();
-      setTimeout(() => {
-        audio.pause();
-        audio.currentTime = 0;
-      }, 5000);
-    } catch (error) {
-      console.error('试听失败:', error);
-    }
-  };
+  const previewBgm = () =>
+    playPreview(bgmSourceUrl(), bgmVolume.value / 100, PREVIEW_BGM_MS);
 
   /** 试听当前音效 */
-  const previewSfx = async () => {
-    const audio = new Audio(sfxSourceUrl());
-    audio.volume = sfxVolume.value / 100;
-    try {
-      await audio.play();
-    } catch (error) {
-      console.error('试听失败:', error);
-    }
-  };
+  const previewSfx = () =>
+    playPreview(sfxSourceUrl(), sfxVolume.value / 100, null);
 
   const cleanup = () => {
+    stopPreview();
     stopBackgroundMusic();
     if (beginSoundAudio) {
       beginSoundAudio.pause();
@@ -311,6 +365,7 @@ export function useAudio() {
     setCustomSfx,
     previewBgm,
     previewSfx,
+    stopPreview,
     playBeginSound,
     playBackgroundMusic,
     stopBackgroundMusic,

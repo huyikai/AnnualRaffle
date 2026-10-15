@@ -279,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { FIT_MODES, customBackgroundUrl } from '@/data/appearance';
@@ -290,6 +290,7 @@ import { validateAudio } from '@/data/audio';
 import { checkLatestRelease } from '@/data/update';
 import type { UpdateInfo } from '@/data/update';
 import { APP_VERSION } from '@/config/release';
+import { useLotteryStore } from '@/stores/lottery';
 import {
   exportBackupToFile,
   pickBackupFile,
@@ -299,6 +300,7 @@ import {
 import { isTauri } from '@/platform';
 
 const router = useRouter();
+const store = useLotteryStore();
 const tab = ref('background');
 const isTauriApp = isTauri();
 
@@ -329,6 +331,7 @@ const {
   setCustomSfx,
   previewBgm,
   previewSfx,
+  stopPreview,
 } = useAudio();
 
 const currentHint = computed(
@@ -338,8 +341,21 @@ const currentHint = computed(
 const isActivePreset = (item: BackgroundItem) =>
   !stored.value.customBackground && stored.value.backgroundId === item.id;
 
+/**
+ * 自定义背景的缓存版本号。
+ *
+ * 这些图走的是磁盘文件（桌面端 asset 协议），同名覆盖后浏览器仍会命中旧缓存，
+ * 所以需要一个「内容真的变了才变」的版本号。之前这里直接用 Date.now()，
+ * 结果每次响应式更新都给所有缩略图换一个新 URL：缓存永远不命中，
+ * 切个 tab、动个音量就把磁盘上的图重新下一遍，图片还会闪一下。
+ */
+const customRevision = ref(0);
+const bumpCustomRevision = () => {
+  customRevision.value++;
+};
+
 const customUrl = (name: string) =>
-  `${customBackgroundUrl(name)}?v=${Date.now()}`;
+  `${customBackgroundUrl(name)}?v=${customRevision.value}`;
 
 const shortName = (name: string) => {
   const stripped = name.replace(/^custom-/, '').replace(/\.[^.]+$/, '');
@@ -369,6 +385,7 @@ async function pickCustom() {
     return;
   }
   if (await uploadCustom(name, bytes)) {
+    bumpCustomRevision();
     ElMessage.success('背景已更新');
   } else {
     ElMessage.error('保存失败，请重试');
@@ -385,7 +402,10 @@ async function removeOne(name: string) {
   } catch {
     return;
   }
-  if (await removeCustom(name)) ElMessage.success('已删除');
+  if (await removeCustom(name)) {
+    bumpCustomRevision();
+    ElMessage.success('已删除');
+  }
 }
 
 // ---- 自定义音频上传 ----
@@ -464,7 +484,10 @@ async function handleRestore() {
       },
     );
     restoreBackup(payload);
-    ElMessage.success('已恢复备份，请刷新页面');
+    // 只落盘不更新 store 的话，用户不刷新就继续编辑，内存里的旧值会在
+    // 下一次 commit 时把刚恢复的数据覆盖掉，且全程没有任何提示。
+    store.applyBackup(payload);
+    ElMessage.success('已恢复备份');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('cancel') || message.includes('取消')) return;
@@ -499,6 +522,12 @@ async function checkUpdate() {
 
 onMounted(() => {
   void refreshCustom();
+});
+
+// 试听是一次性音频，不会随组件销毁而停止。
+// 不在这里收尾的话，离开设置页后音乐会继续在后台放完剩下的 5 秒。
+onBeforeUnmount(() => {
+  stopPreview();
 });
 </script>
 
