@@ -356,5 +356,3 @@ pnpm lint:check    # 代码风格（只检查，CI 用）
 ## 许可证
 
 [MIT](LICENSE) © 2026 huyikai
-
-本项目基于 [huyikai/AnnualRaffle](https://github.com/huyikai/AnnualRaffle) 改造。
