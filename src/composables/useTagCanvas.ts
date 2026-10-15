@@ -47,7 +47,7 @@ export function useTagCanvas() {
     if (!mainEl) {
       throw new Error('Main element not found');
     }
-    
+
     const canvas = document.createElement('canvas');
     canvas.width = document.body.offsetWidth;
     canvas.height = document.body.offsetHeight;
@@ -68,6 +68,39 @@ export function useTagCanvas() {
   };
 
   /**
+   * 减弱动效偏好
+   *
+   * TagCanvas 是自跑的 rAF 循环，CSS 的 prefers-reduced-motion media query 管不到它，
+   * 只在样式表里加 @media 是假修——球云照转不误。必须在这里显式把速度置为静止。
+   */
+  const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  const prefersReducedMotion = (): boolean => motionQuery.matches;
+
+  /** 按系统偏好选择速度：减弱动效时静止球云 */
+  const getPreferredSpeed = (): [number, number] =>
+    prefersReducedMotion() ? ([0, 0] as [number, number]) : getNormalSpeed();
+
+  let motionListenerAttached = false;
+
+  /** 启动球云后监听系统偏好变化 */
+  const watchMotionPreference = (): void => {
+    if (motionListenerAttached) {
+      return;
+    }
+    motionListenerAttached = true;
+    motionQuery.addEventListener('change', () => {
+      // 抽奖进行中（ DRAW_SPEED）时不打断
+      if (drawSpeedActive) {
+        return;
+      }
+      setSpeed(getPreferredSpeed());
+    });
+  };
+
+  let drawSpeedActive = false;
+
+  /**
    * 启动 TagCanvas
    */
   const startTagCanvas = (): void => {
@@ -77,53 +110,59 @@ export function useTagCanvas() {
         console.warn('Tags element not found, cannot initialize TagCanvas');
         return;
       }
-      
+
       // 检查是否有数据
       const tagsList = tagsEl.querySelectorAll('ul');
       if (tagsList.length === 0) {
         console.warn('No tags data available, cannot initialize TagCanvas');
         return;
       }
-      
+
       // 移除已存在的 canvas
-      const existingCanvas = document.querySelector(`#${TAG_CANVAS_CONFIG.CANVAS_ID}`);
+      const existingCanvas = document.querySelector(
+        `#${TAG_CANVAS_CONFIG.CANVAS_ID}`,
+      );
       if (existingCanvas && existingCanvas.parentElement) {
         existingCanvas.parentElement.removeChild(existingCanvas);
       }
-      
+
       createCanvas();
-      
+
       if (!TagCanvas) {
         console.error('TagCanvas library not loaded');
         return;
       }
-      
+
       try {
-        TagCanvas.Start(TAG_CANVAS_CONFIG.CANVAS_ID, TAG_CANVAS_CONFIG.TAGS_ID, {
-          textColour: TAG_CANVAS_CONFIG.TEXT_COLOR,
-          initial: getNormalSpeed(),
-          dragControl: true,
-          dragThreshold: 0,
-          textHeight: TAG_CANVAS_CONFIG.TEXT_HEIGHT,
-          noSelect: true,
-          wheelZoom: false,
-          pinchZoom: false,
-          shuffleTags: true,
-          textVAlign: 'middle',
-          imageVAlign: 'middle',
-          imageAlign: 'centre',
-          textAlign: 'centre',
-          imageMode: 'both',
-          imagePosition: 'top',
-          imagePadding: TAG_CANVAS_CONFIG.IMAGE_PADDING,
-          depth: TAG_CANVAS_CONFIG.DEPTH,
-          radiusX: TAG_CANVAS_CONFIG.RADIUS_X,
-          radiusY: TAG_CANVAS_CONFIG.RADIUS_Y,
-          radiusZ: TAG_CANVAS_CONFIG.RADIUS_Z,
-          offsetY: TAG_CANVAS_CONFIG.OFFSET_Y,
-          minBrightness: TAG_CANVAS_CONFIG.MIN_BRIGHTNESS,
-          lock: null
-        });
+        TagCanvas.Start(
+          TAG_CANVAS_CONFIG.CANVAS_ID,
+          TAG_CANVAS_CONFIG.TAGS_ID,
+          {
+            textColour: TAG_CANVAS_CONFIG.TEXT_COLOR,
+            initial: getPreferredSpeed(),
+            dragControl: true,
+            dragThreshold: 0,
+            textHeight: TAG_CANVAS_CONFIG.TEXT_HEIGHT,
+            noSelect: true,
+            wheelZoom: false,
+            pinchZoom: false,
+            shuffleTags: true,
+            textVAlign: 'middle',
+            imageVAlign: 'middle',
+            imageAlign: 'centre',
+            textAlign: 'centre',
+            imageMode: 'both',
+            imagePosition: 'top',
+            imagePadding: TAG_CANVAS_CONFIG.IMAGE_PADDING,
+            depth: TAG_CANVAS_CONFIG.DEPTH,
+            radiusX: TAG_CANVAS_CONFIG.RADIUS_X,
+            radiusY: TAG_CANVAS_CONFIG.RADIUS_Y,
+            radiusZ: TAG_CANVAS_CONFIG.RADIUS_Z,
+            offsetY: TAG_CANVAS_CONFIG.OFFSET_Y,
+            minBrightness: TAG_CANVAS_CONFIG.MIN_BRIGHTNESS,
+            lock: null,
+          },
+        );
       } catch (error) {
         console.error('TagCanvas initialization error:', error);
         throw error;
@@ -141,7 +180,7 @@ export function useTagCanvas() {
       console.warn('TagCanvas library not loaded, cannot reload');
       return;
     }
-    
+
     try {
       TagCanvas.Reload(TAG_CANVAS_CONFIG.CANVAS_ID);
     } catch (error) {
@@ -151,7 +190,10 @@ export function useTagCanvas() {
         try {
           startTagCanvas();
         } catch (initError) {
-          console.error('Failed to reinitialize TagCanvas after reload error:', initError);
+          console.error(
+            'Failed to reinitialize TagCanvas after reload error:',
+            initError,
+          );
         }
       }, INIT_DELAY.RELOAD_RETRY);
     }
@@ -159,13 +201,17 @@ export function useTagCanvas() {
 
   /**
    * 设置 TagCanvas 速度
+   *
+   * 记录当前是否为抽奖速度，避免系统减弱动效偏好变化时打断正在进行的抽奖。
    */
   const setSpeed = (speed: [number, number]): void => {
     if (!TagCanvas) {
       console.warn('TagCanvas library not loaded, cannot set speed');
       return;
     }
-    
+
+    drawSpeedActive = speed[0] !== 0;
+
     try {
       TagCanvas.SetSpeed(TAG_CANVAS_CONFIG.CANVAS_ID, speed);
     } catch (error) {
@@ -187,7 +233,10 @@ export function useTagCanvas() {
   /**
    * 初始化 TagCanvas（带延迟和重试逻辑）
    */
-  const initTagCanvas = (checkData: () => boolean, delay: number = INIT_DELAY.TAG_CANVAS): void => {
+  const initTagCanvas = (
+    checkData: () => boolean,
+    delay: number = INIT_DELAY.TAG_CANVAS,
+  ): void => {
     const init = () => {
       if (checkData()) {
         startTagCanvas();
@@ -200,7 +249,7 @@ export function useTagCanvas() {
         }, INIT_DELAY.RETRY);
       }
     };
-    
+
     setTimeout(init, delay);
   };
 
@@ -210,6 +259,9 @@ export function useTagCanvas() {
     setSpeed,
     handleResize,
     initTagCanvas,
-    getNormalSpeed
+    getNormalSpeed,
+    getPreferredSpeed,
+    prefersReducedMotion,
+    watchMotionPreference,
   };
 }

@@ -1,277 +1,115 @@
 <template>
-  <div id="root" class="relative" :style="{ backgroundColor: '#5E0F08', backgroundImage: `url(${bgImage})`, backgroundSize: '100% 100%', backgroundPosition: 'center center', backgroundRepeat: 'no-repeat', width: '100vw', height: '100vh', margin: 0, padding: 0 }">
-    <header class="h-[50px] leading-[50px] relative">
-      <el-button
-        class="res absolute top-[17px] right-5 p-0 z-[9999]"
-        style="color:#E1A857; background: transparent; border: none;"
-        link
-        @click="showResult = true"
-      >
-        抽奖结果
-      </el-button>
-      <el-button
-        class="con absolute top-[17px] right-[100px] p-0 z-[9999]"
-        style="color:#E1A857; background: transparent; border: none;"
-        link
-        @click="showConfig = true"
-      >
-        抽奖配置
-      </el-button>
-    </header>
-    <div id="main" :class="{ 'blur-[5px]': showRes }" class="relative" style="z-index: 1; width: 100vw; height: 100vh; margin: 0; padding: 0;"></div>
-    <div id="tags" style="display: none;">
-      <ul v-for="item in datas" :key="item.key">
-        <li>
-          <a
-            href="javascript:void(0);"
-            :style="{
-              color: '#fff'
-            }"
-          >
-            <img
-              v-if="item.key"
-              :src="getUserAvatarUrl(item.key)"
-              @error="handleAvatarError"
-              class="object-contain rounded-full"
-              :width="58"
-              :height="76"
-            />
-            <span>{{ item.name }}</span>
-          </a>
-        </li>
-      </ul>
-    </div>
-    <transition name="bounce">
-      <div id="resbox" v-show="showRes" class="absolute text-center" style="z-index: 10001; top: 50%; left: 50%; width: 1280px; transform: translate(-50%, -50%);">
-        <p @click="showRes = false" class="text-red-500 text-[50px] leading-[120px] font-bold">{{ categoryName }}抽奖结果：</p>
-        <div class="container flex justify-center items-center flex-wrap gap-2.5 mx-auto" :style="`width: calc(170px * 5 + 40px);`">
-          <div
-            v-for="item in resArr"
-            :key="item"
-            class="itemres bg-white p-2.5 rounded-lg font-bold cursor-pointer flex flex-col items-center justify-center relative gap-2.5"
-            :style="resCardStyle"
-            :data-id="item"
-            @click="showRes = false"
-          >
-            <img
-              v-if="item"
-              :src="getUserAvatarUrl(item)"
-              @error="handleAvatarError"
-              class="block object-contain w-[125px] h-[125px]"
-              draggable="false"
-              @contextmenu.prevent
-            />
-            <span class="resname text-2xl leading-6 text-[#3d3d3d] text-center">
-              {{ store.list.find((d) => d.key === item)?.name }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <LotteryConfig v-model:visible="showConfig" @resetconfig="reloadTagCanvas" />
-    <Tool
-      @toggle="toggle"
-      @resetConfig="reloadTagCanvas"
-      :running="running"
-      :closeRes="closeRes"
-      @stop="stop"
-    />
-    <Result v-model:visible="showResult"></Result>
-  </div>
+  <!-- 路由出口：/ → 抽奖舞台，/people → 人员管理，/settings → 设置 -->
+  <router-view v-slot="{ Component }">
+    <component :is="Component" />
+  </router-view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import { ElMessage } from 'element-plus';
-import LotteryConfig from '@/components/LotteryConfig.vue';
-import Tool from '@/components/Tool.vue';
-import Result from '@/components/Result.vue';
+import { onMounted, onBeforeUnmount } from 'vue';
+import { ElNotification } from 'element-plus';
+import { defaultAvatarUrl } from '@/utils/avatar';
+import { useLotteryStore } from '@/stores/lottery';
+import { migrateSchema } from '@/storage/migrate';
+import { loadRoster, saveRoster } from '@/storage/roster';
+import { loadPrizes, loadPrizeTombstones } from '@/storage/prizes';
+import { loadResultMeta } from '@/storage/result';
+import { initPlatform, isTauri } from '@/platform';
+import { runDesktopSelfCheck } from '@/platform/selfcheck';
 import {
   getData,
   configField,
   resultField,
-  newLotteryField,
-  conversionCategoryName,
-  listField,
-  excludeWinnersField
+  excludeWinnersField,
 } from '@/helper/index';
-import { user, excludedUsers } from '@/config/userLoader';
-import { lottery, config } from '@/config/lottery';
-import { useLotteryStore } from '@/stores/lottery';
-import bgImage from '@/assets/bg.jpg';
-import type { LotteryForm, NewLotteryItem } from '@/types';
-import type { ResultType } from '@/config/lottery';
-import type { UserItem } from '@/config/userLoader';
-import { FONT_SIZE_CONFIG, TAG_CANVAS_CONFIG } from '@/constants';
-import type { LotteryConfigType } from '@/config/lottery';
-import { useTagCanvas } from '@/composables/useTagCanvas';
-import { useLottery } from '@/composables/useLottery';
-import { useAudio } from '@/composables/useAudio';
-import { annualRaffleHandler } from '@/helper/algorithm';
-import { defaultAvatarUrl, getUserAvatarUrl, handleAvatarError } from '@/utils/avatar';
+import { config } from '@/config/lottery';
+import type { LotteryConfigType, ResultType } from '@/config/lottery';
 
 const store = useLotteryStore();
-const { startTagCanvas, reloadTagCanvas, handleResize, initTagCanvas } = useTagCanvas();
-const { running, showRes, resArr, category, toggleDraw, stopDraw, closeResult } = useLottery(excludedUsers);
-const { enableAudio } = useAudio();
 
-// 设置全局变量，供 TagCanvas 使用
-(window as any).__defaultAvatarUrl = defaultAvatarUrl;
+// TagCanvas 通过 window 全局变量取默认头像，在应用挂载时一次性注入
+window.__defaultAvatarUrl = defaultAvatarUrl;
 
-const showConfig = ref(false);
-const showResult = ref(false);
-
-const resCardStyle = computed(() => {
-  const style: { fontSize: string } = { fontSize: FONT_SIZE_CONFIG.DEFAULT };
-  const number = store.config.number;
-  if (number && number < FONT_SIZE_CONFIG.THRESHOLD_100) {
-    style.fontSize = FONT_SIZE_CONFIG.SMALL;
-  } else if (number && number < FONT_SIZE_CONFIG.THRESHOLD_1000) {
-    style.fontSize = FONT_SIZE_CONFIG.MEDIUM;
-  } else if (number && number < FONT_SIZE_CONFIG.THRESHOLD_10000) {
-    style.fontSize = FONT_SIZE_CONFIG.LARGE;
-  }
-  return style;
-});
-
-
-const datas = computed(() => {
-  if (!store.list || store.list.length === 0) {
-    return [];
-  }
-  
-  try {
-    const wonSet = new Set<number>();
-    excludedUsers.forEach(item => wonSet.add(item.key));
-    
-    // TagCanvas 球体跟随全局排除设置
-    if (store.excludeWinners) {
-      Object.values(store.result).flat().forEach(key => wonSet.add(key));
-    }
-    
-    const availableUsers = store.list
-      .map(item => item.key)
-      .filter(key => !wonSet.has(key));
-    
-    const numToShow = Math.min(availableUsers.length, store.list.length);
-    
-    if (numToShow === 0) {
-      return [];
-    }
-    
-    const randomShowNums = annualRaffleHandler(
-      {
-        won: [],
-        num: numToShow,
-        excludeWinners: store.excludeWinners
-      },
-      {
-        result: store.result,
-        list: store.list,
-        config: store.config
-      },
-      excludedUsers
-    );
-    
-    const randomShowDatas = randomShowNums.map(item => {
-      const listData = store.list.find(d => d.key === item);
-      const photo = store.photos.find(d => d.id === item);
-      return {
-        key: item,
-        name: listData ? listData.name : '',
-        photo: photo ? photo.value : ''
-      };
+/**
+ * 应用级数据初始化。
+ *
+ * 必须放在外壳而不是各个视图里：用户可以直接从「人员管理」进入应用，
+ * 若初始化挂在抽奖页，直接访问 #/people 时 store 会是空的——
+ * 表现为「导入成功、刷新全没」。
+ */
+onMounted(async () => {
+  // 先确认原生环境可用（桌面端取一次应用数据目录）
+  const appDir = await initPlatform();
+  if (isTauri() && !appDir) {
+    ElNotification({
+      title: '原生环境异常',
+      type: 'error',
+      duration: 0,
+      message:
+        '无法访问应用数据目录，导入照片与自定义背景将不可用。请重启应用；仍失败请重新安装。',
     });
-    return randomShowDatas;
-  } catch (error) {
-    console.warn('生成标签数据失败:', error);
-    return [];
   }
-});
 
-const categoryName = computed(() => {
-  return conversionCategoryName(category.value);
-});
+  // 开发模式下跑一遍桌面端全链路自检：
+  // 造图 → 校验 → 压缩 → 写 app data → 资产协议读回 → 枚举/清理 → 背景写入 → 快照。
+  // 这些路径只有 Tauri 下才存在，而原生窗口无法自动点击，
+  // 跑完把结果写到 app data/selfcheck.json，终端可直接读。
+  // import.meta.env.DEV 在生产构建中被静态消除，不产生运行时开销。
+  if (import.meta.env.DEV) {
+    void runDesktopSelfCheck();
+  }
 
-watch(
-  () => store.photos,
-  () => {
-    nextTick(() => {
-      reloadTagCanvas();
+  // schema 迁移（v1 → v2）
+  const report = migrateSchema();
+  if (report.migrated && report.warnings.length > 0) {
+    ElNotification({
+      title: '数据已升级',
+      type: 'warning',
+      duration: 0,
+      message: report.warnings.join(' '),
     });
-  },
-  { deep: true }
-);
+  }
 
-// 监听数据变化，当数据加载完成后初始化 TagCanvas
-watch(
-  () => [store.list.length, datas.value.length],
-  ([listLength, datasLength]) => {
-    if (listLength > 0 && datasLength > 0) {
-      nextTick(() => {
-        const canvas = document.querySelector(`#${TAG_CANVAS_CONFIG.CANVAS_ID}`);
-        if (!canvas) {
-          startTagCanvas();
-        } else {
-          reloadTagCanvas();
-        }
-      });
-    }
-  },
-  { immediate: false }
-);
-
-onMounted(() => {
-  // 初始化数据
   try {
     const configData = getData(configField);
-    
-    if (configData && typeof configData === 'object' && !Array.isArray(configData) && configData !== null) {
-      const migratedConfig = configData as LotteryConfigType & { name?: string; number?: number };
-      if (Object.keys(migratedConfig).length > 0) {
-        store.setConfig(migratedConfig);
-      } else {
-        store.setConfig(config);
-      }
+    if (
+      configData &&
+      typeof configData === 'object' &&
+      !Array.isArray(configData) &&
+      configData !== null
+    ) {
+      const migrated = configData as LotteryConfigType & {
+        name?: string;
+        number?: number;
+      };
+      store.setConfig(
+        Object.keys(migrated).length > 0
+          ? migrated
+          : (config as LotteryConfigType),
+      );
     } else {
       store.setConfig(config);
     }
 
-    const result = getData(resultField);
-    if (result) {
-      store.setResult(result as ResultType);
+    const storedResult = getData(resultField);
+    if (storedResult) {
+      store.setResult(storedResult as ResultType);
     }
 
-    const newLottery = getData(newLotteryField) as NewLotteryItem[] | null;
-    if (newLottery && Array.isArray(newLottery)) {
-      const currentConfig = { ...store.config };
-      newLottery.forEach((item: NewLotteryItem) => {
-        store.setNewLottery(item);
-        // 确保新奖项有配置
-        if (!currentConfig[item.key]) {
-          currentConfig[item.key] = { count: 0 };
-        }
-      });
-      store.setConfig(currentConfig);
-    } else {
-      const currentConfig = { ...store.config };
-      lottery.forEach(item => {
-        store.setNewLottery(item);
-        // 确保有配置
-        if (!currentConfig[item.key]) {
-          currentConfig[item.key] = { count: 0 };
-        }
-      });
-      store.setConfig(currentConfig);
-    }
+    store.setResultMeta(loadResultMeta());
+    store.setPrizes(loadPrizes());
+    store.setPrizeTombstones(loadPrizeTombstones());
 
-    const list = getData(listField);
-    if (list) {
-      store.setList(list as UserItem[]);
-    } else {
-      store.setList(user);
-    }
+    // 确保每个奖项都有配置项（新增奖项或历史数据缺项时的兜底）
+    const currentConfig = { ...store.config };
+    store.prizes.forEach((prize) => {
+      if (!currentConfig[prize.key]) {
+        currentConfig[prize.key] = { count: 0 };
+      }
+    });
+    store.setConfig(currentConfig);
+
+    store.setList(loadRoster());
 
     const savedExcludeWinners = getData(excludeWinnersField);
     if (typeof savedExcludeWinners === 'boolean') {
@@ -279,104 +117,17 @@ onMounted(() => {
     }
   } catch (error) {
     console.error('数据初始化失败:', error);
-    // 使用默认数据
     store.setConfig(config);
-    store.setList(user);
+    store.setList(loadRoster());
   }
-
-  // 确保 DOM 完全加载后再初始化 TagCanvas
-  nextTick(() => {
-    initTagCanvas(() => store.list.length > 0 && datas.value.length > 0);
-  });
-  window.addEventListener('resize', handleResize);
-
-  // 添加首次点击事件监听器，用于启用音频（处理浏览器自动播放策略）
-  const handleFirstClick = () => {
-    enableAudio();
-    document.removeEventListener('click', handleFirstClick);
-    document.removeEventListener('touchstart', handleFirstClick);
-  };
-  document.addEventListener('click', handleFirstClick, { once: true });
-  document.addEventListener('touchstart', handleFirstClick, { once: true });
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize);
+  // 外壳通常不会卸载，这里只做兜底：确保数据已落盘
+  try {
+    saveRoster(store.list);
+  } catch {
+    /* 落盘失败不阻断卸载 */
+  }
 });
-
-const toggle = (form: LotteryForm) => {
-  const success = toggleDraw(form);
-  if (!success && !running.value) {
-    // 如果抽奖失败，显示错误提示
-    ElMessage.error('抽奖失败，请检查可抽奖人数是否充足');
-  }
-};
-
-const stop = () => {
-  stopDraw();
-};
-
-const closeRes = () => {
-  closeResult();
-};
 </script>
-
-<style scoped>
-.bounce-enter-active {
-  animation: bounce-in 1.5s;
-}
-.bounce-leave-active {
-  animation: bounce-in 0s reverse;
-}
-
-@keyframes bounce-in {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 0;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.05);
-    opacity: 1;
-  }
-  70% {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-}
-
-:deep(.el-select-dropdown) {
-  background-color: #5b1411 !important;
-}
-:deep(.el-select-dropdown__item) {
-  color: #ccc !important;
-}
-:deep(.el-select-dropdown__item.selected) {
-  color: #ebc68b !important;
-}
-:deep(.el-select-dropdown__item.hover),
-:deep(.el-select-dropdown__item:hover) {
-  background-color: #8f2925 !important;
-}
-
-#resbox img {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  -webkit-user-drag: none;
-  -khtml-user-drag: none;
-  -moz-user-drag: none;
-  -o-user-drag: none;
-}
-
-#resbox .itemres {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-</style>

@@ -1,6 +1,10 @@
 <template>
   <div>
-    <div id="tool" class="fixed bottom-[30px] left-1/2 -translate-x-1/2 text-center flex flex-col items-center justify-center gap-2.5" style="z-index: 10000;">
+    <div
+      id="tool"
+      class="fixed bottom-[30px] left-1/2 -translate-x-1/2 text-center flex flex-col items-center justify-center gap-2.5"
+      style="z-index: var(--ar-z-float)"
+    >
       <div class="relative w-[150px]">
         <el-select
           v-model="form.category"
@@ -17,13 +21,25 @@
             :key="index"
           ></el-option>
         </el-select>
-        <el-tooltip :disabled="!presetIssues.length" placement="top" effect="dark">
+        <el-tooltip
+          :disabled="!presetIssues.length"
+          placement="top"
+          effect="dark"
+        >
           <template #content>
-            <div class="preset-issue-line">预设名单中有 {{ presetIssues.length }} 人无法参与本奖项：</div>
-            <div v-for="issue in presetIssues" :key="issue.key" class="preset-issue-line">
+            <div class="preset-issue-line">
+              预设名单中有 {{ presetIssues.length }} 人无法参与本奖项：
+            </div>
+            <div
+              v-for="issue in presetIssues"
+              :key="issue.key"
+              class="preset-issue-line"
+            >
               {{ issue.name }}（{{ issue.reason }}）
             </div>
-            <div class="preset-issue-line">可在「抽奖配置」中调整预设名单或排除设置</div>
+            <div class="preset-issue-line">
+              可在「抽奖配置」中调整预设名单或排除设置
+            </div>
           </template>
           <span v-if="presetIssues.length" class="preset-alert-dot"></span>
         </el-tooltip>
@@ -59,7 +75,9 @@
           <el-form-item label=" " v-if="form.category">
             <span>
               共&nbsp;
-              <span class="text-red-500 font-bold">{{ getCategoryCount(form.category) }}</span>
+              <span class="text-red-500 font-bold">{{
+                getCategoryCount(form.category)
+              }}</span>
               &nbsp;名
             </span>
             <span class="ml-5">
@@ -84,13 +102,17 @@
         class="c-removeoptions"
         :append-to-body="true"
       >
-        <el-form ref="formRef" :model="removeInfo" label-width="80px" size="small">
+        <el-form
+          ref="formRef"
+          :model="removeInfo"
+          label-width="80px"
+          size="small"
+        >
           <el-form-item label="重置选项">
             <el-radio-group v-model="removeInfo.type">
               <el-radio border :label="ResetType.ALL">重置全部数据</el-radio>
               <el-radio border :label="ResetType.CONFIG">重置抽奖配置</el-radio>
               <el-radio border :label="ResetType.LIST">重置名单</el-radio>
-              <el-radio border :label="ResetType.PHOTOS">重置照片</el-radio>
               <el-radio border :label="ResetType.RESULT">重置抽奖结果</el-radio>
             </el-radio-group>
           </el-form-item>
@@ -101,7 +123,11 @@
         </el-form>
       </el-dialog>
     </div>
-    <a class="btn-reset fixed bottom-2.5 right-2.5 bg-transparent border-transparent text-[#b08031] text-xs cursor-pointer" style="z-index: 10000;" @click="resetConfig">
+    <a
+      class="btn-reset fixed bottom-2.5 right-2.5 bg-transparent border-transparent text-[#b08031] text-xs cursor-pointer"
+      style="z-index: var(--ar-z-float)"
+      @click="resetConfig"
+    >
       重置
     </a>
   </div>
@@ -114,17 +140,14 @@ import {
   clearData,
   removeData,
   configField,
-  listField,
   resultField,
-  conversionCategoryName
 } from '@/helper/index';
-import { database, DB_STORE_NAME } from '@/helper/db';
 import { useLotteryStore } from '@/stores/lottery';
 import { DEFAULT_CONFIG, LOTTERY_MODE, LOTTERY_TIMING } from '@/constants';
 import type { LotteryForm } from '@/types';
 import { ResetType } from '@/types';
 import { getLotteryCount, getPresetIssues } from '@/config/lottery';
-import { excludedUsers } from '@/config/userLoader';
+import { rosterField } from '@/storage/roster';
 
 interface Props {
   running: boolean;
@@ -151,9 +174,7 @@ const getCategoryCount = (category: string): number => {
 const remain = computed(() => {
   return (
     getCategoryCount(form.category) -
-    (result.value[form.category]
-      ? result.value[form.category].length
-      : 0)
+    (result.value[form.category] ? result.value[form.category].length : 0)
   );
 });
 
@@ -165,34 +186,25 @@ const presetIssues = computed(() => {
     categoryKey: form.category,
     globalExcludeWinners: store.excludeWinners,
     result: result.value,
-    excludedUsers,
-    list: store.list
-  }).map(issue => ({
+    // 排除名单现从名册派生，不再是构建期静态 import
+    excludedUsers: store.excludedUsers,
+    list: store.list,
+  }).map((issue) => ({
     ...issue,
-    name: store.list.find(u => u.key === issue.key)?.name ?? `ID ${issue.key}`
+    name:
+      store.list.find((u) => u.key === issue.key)?.name ?? `工号 ${issue.key}`,
   }));
 });
 
+// 奖项下拉：遍历奖项列表而非 config 的键，避免删除奖项后残留项仍出现在下拉中
 const categorys = computed(() => {
   const options: Array<{ label: string; value: string }> = [];
-  for (const key in config.value) {
-    if (config.value.hasOwnProperty(key)) {
-      // 跳过特殊字段
-      if (key === 'name' || key === 'number') {
-        continue;
-      }
-      const count = getLotteryCount(config.value, key);
-      if (count > 0) {
-        let name = conversionCategoryName(key);
-        if (name) {
-          options.push({
-            label: name,
-            value: key
-          });
-        }
-      }
+  store.prizes.forEach((prize) => {
+    const count = getLotteryCount(config.value, prize.key);
+    if (count > 0) {
+      options.push({ label: prize.name, value: prize.key });
     }
-  }
+  });
   return options;
 });
 
@@ -204,7 +216,7 @@ const form = reactive<LotteryForm>({
   category: DEFAULT_CONFIG.DEFAULT_CATEGORY,
   mode: DEFAULT_CONFIG.DEFAULT_MODE as number,
   qty: DEFAULT_CONFIG.DEFAULT_QTY,
-  remain: 0
+  remain: 0,
 });
 
 watch(showRemoveoptions, (v) => {
@@ -218,26 +230,21 @@ const resetConfig = () => {
   ElMessageBox.confirm('此操作将重置所选数据，是否继续?', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    type: 'warning'
+    type: 'warning',
   })
     .then(() => {
       switch (type) {
         case ResetType.ALL:
           clearData();
           store.setClearStore();
-          database.clear(DB_STORE_NAME);
           break;
         case ResetType.CONFIG:
           removeData(configField);
           store.setClearConfig();
           break;
         case ResetType.LIST:
-          removeData(listField);
+          removeData(rosterField);
           store.setClearList();
-          break;
-        case ResetType.PHOTOS:
-          database.clear(DB_STORE_NAME);
-          store.setClearPhotos();
           break;
         case ResetType.RESULT:
           removeData(resultField);
@@ -252,7 +259,7 @@ const resetConfig = () => {
       showRemoveoptions.value = false;
       ElMessage({
         type: 'success',
-        message: '重置成功!'
+        message: '重置成功!',
       });
 
       emit('resetConfig');
@@ -260,7 +267,7 @@ const resetConfig = () => {
     .catch(() => {
       ElMessage({
         type: 'info',
-        message: '已取消'
+        message: '已取消',
       });
     });
 };
@@ -295,10 +302,7 @@ const onSubmit = () => {
       }
     }
     showSetwat.value = false;
-    emit(
-      'toggle',
-      Object.assign({}, form, { remain: remain.value })
-    );
+    emit('toggle', Object.assign({}, form, { remain: remain.value }));
   }
 };
 </script>
@@ -339,38 +343,8 @@ const onSubmit = () => {
   margin-bottom: 10px;
 }
 
-/* 确保下拉菜单显示在按钮上方 */
-:deep(.tool-select-dropdown) {
-  z-index: 10001 !important;
-}
-
-/* 预设名单失效提醒：无文字小红点，悬停显示明细，避免在大屏暴露信息 */
-.preset-alert-dot {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  z-index: 1;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background-color: #f56c6c;
-  box-shadow: 0 0 6px rgba(245, 108, 108, 0.8);
-  animation: preset-alert-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes preset-alert-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.3);
-    opacity: 0.8;
-  }
-}
-
-.preset-issue-line {
-  line-height: 1.6;
-}
+/* 注：原先的 `:deep(.tool-select-dropdown) { z-index: 10001 !important }` 与
+   `.preset-alert-dot` 样式已迁至 design/tokens.css：
+   popper 被 teleport 到 body 后 scoped :deep 匹配不到，必须写成全局规则。
+   小红点同时去掉了霓虹外发光，并从无限循环改为播放 3 次。 */
 </style>

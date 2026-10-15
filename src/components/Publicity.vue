@@ -36,28 +36,31 @@ const result = computed(() => store.result);
 
 const message = computed((): MessageItem[] => {
   const fields = Object.keys(config.value);
-  const messageList: MessageItem[] = [{ key: 0, title: config.value.name as string }];
-  
+  const messageList: MessageItem[] = [
+    { key: 0, title: config.value.name as string },
+  ];
+
   fields.forEach((item, index) => {
     // 跳过特殊字段
     if (item === 'name' || item === 'number') {
       return;
     }
-    
+
     const label = conversionCategoryName(item);
     const resultValue = result.value[item];
     const configValue = config.value[item];
-    
+
     // 获取配置数量
-    const count = (configValue && typeof configValue === 'object' && 'count' in configValue)
-      ? (configValue as { count: number }).count
-      : 0;
-    
+    const count =
+      configValue && typeof configValue === 'object' && 'count' in configValue
+        ? (configValue as { count: number }).count
+        : 0;
+
     if (resultValue && count > 0) {
       messageList.push({
         key: index + 1,
         title: `${label}抽奖结果:`,
-        value: resultValue.length > 0 ? resultValue.join('、') : '暂未抽取'
+        value: resultValue.length > 0 ? resultValue.join('、') : '暂未抽取',
       });
     }
   });

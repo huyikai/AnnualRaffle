@@ -4,12 +4,26 @@
     width="600px"
     class="c-Result"
     :append-to-body="true"
-    :z-index="10100"
   >
     <template #header>
       <div class="dialog-title">
         <span class="text-2xl font-bold">抽奖结果</span>
         <span class="text-sm text-gray-500 ml-2.5">(点击号码可以删除)</span>
+        <el-dropdown class="ml-3" @command="handleExport">
+          <el-button size="small" text type="primary">导出 CSV</el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="all">导出全部奖项</el-dropdown-item>
+              <el-dropdown-item
+                v-for="item in exportableCategories"
+                :key="item.label"
+                :command="item.label"
+              >
+                仅导出「{{ item.name }}」
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </template>
     <div
@@ -22,16 +36,14 @@
         {{ item.name }}
       </span>
       <span class="value flex-1 flex flex-wrap gap-2">
-        <span v-if="item.value && item.value.length === 0">
-          暂未抽奖
-        </span>
+        <span v-if="item.value && item.value.length === 0"> 暂未抽奖 </span>
         <span
           class="card inline-block px-1.5 leading-8 text-center text-lg font-bold rounded border border-gray-300 bg-gray-100 relative cursor-pointer hover:before:content-['删除'] hover:before:w-full hover:before:h-full hover:before:bg-gray-300 hover:before:absolute hover:before:left-0 hover:before:top-0 hover:before:text-red-500"
           v-for="(data, j) in item.value"
           :key="j"
           :data-res="data"
         >
-          {{ userList.find((item) => item.key === data)?.name || `用户${data}` }}
+          {{ resolveName(item.label, data) }}
         </span>
       </span>
     </div>
@@ -41,10 +53,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { conversionCategoryName, getDomData } from '@/helper/index';
-import { lottery } from '@/config/lottery';
+import { getDomData } from '@/helper/index';
 import { useLotteryStore } from '@/stores/lottery';
 import type { ResultListItem } from '@/types';
+import { resolveWinnerName } from '@/storage/result';
+import { exportWinnersCsv } from '@/data/csv';
 
 interface Props {
   visible: boolean;
@@ -59,82 +72,100 @@ const store = useLotteryStore();
 
 const dialogVisible = computed({
   get: () => props.visible,
-  set: (val) => emit('update:visible', val)
+  set: (val) => emit('update:visible', val),
 });
 
 const result = computed(() => store.result);
-const userList = computed(() => store.list || []);
 
-  const resultList = computed((): ResultListItem[] => {
-    const list: ResultListItem[] = [];
-    // 合并默认奖项和自定义奖项
-    const allLotteries = [
-      ...lottery,
-      ...store.newLottery
-    ];
-    // 使用 Set 去重，确保键的唯一性，避免重复显示
-    const lotteryList = [...new Set(allLotteries.map(item => item.key))];
-  
-  // 遍历所有奖项（包括自定义奖项）
-  for (const key of lotteryList) {
-    if (result.value.hasOwnProperty(key)) {
-      const element = result.value[key];
-      let name = conversionCategoryName(key);
+/**
+ * 解析中奖人姓名。
+ * 名单优先（改名后展示新名），名单里查不到时回退到抽奖当时的快照——
+ * 这样删除人员或改工号之后，历史中奖记录依然可读。
+ */
+const resolveName = (categoryKey: string, key: string): string =>
+  resolveWinnerName(store.list, store.resultMeta, categoryKey, key);
+
+const resultList = computed((): ResultListItem[] => {
+  const list: ResultListItem[] = [];
+
+  // 遍历全部奖项（含自定义奖项）
+  for (const prize of store.prizes) {
+    if (Object.prototype.hasOwnProperty.call(result.value, prize.key)) {
       list.push({
-        label: key,
-        name,
-        value: element
+        label: prize.key,
+        name: prize.name,
+        value: result.value[prize.key],
       });
     }
   }
-  
-  // 也检查配置中存在的其他奖项（防止遗漏）
-  for (const key in result.value) {
-    if (result.value.hasOwnProperty(key) && !lotteryList.includes(key)) {
-      // 跳过特殊字段
-      if (key === 'name' || key === 'number') {
-        continue;
-      }
-      const element = result.value[key];
-      let name = conversionCategoryName(key);
-      list.push({
-        label: key,
-        name,
-        value: element
-      });
-    }
+
+  // 兜底：结果里存在但奖项列表中没有的 key（历史数据残留），避免记录丢失
+  for (const key of Object.keys(result.value)) {
+    if (key === 'name' || key === 'number') continue;
+    if (store.prizes.some((prize) => prize.key === key)) continue;
+    list.push({
+      label: key,
+      name: store.getPrizeName(key) || '未知奖项',
+      value: result.value[key],
+    });
   }
-  
+
   return list;
 });
 
+/** 有中奖记录的奖项，供导出菜单使用 */
+const exportableCategories = computed(() =>
+  resultList.value.filter((item) => item.value.length > 0),
+);
+
+/**
+ * 导出中奖结果。
+ * 导出姓名口径与页面展示一致（名册优先、回退快照），否则表和屏幕会对不上。
+ */
+const handleExport = (command: string) => {
+  const category = command === 'all' ? undefined : command;
+  try {
+    const { fileName, count } = exportWinnersCsv(
+      store.result,
+      store.resultMeta,
+      store.list,
+      store.prizes,
+      category,
+    );
+    if (count === 0) {
+      ElMessage.warning('没有可导出的中奖记录');
+      return;
+    }
+    ElMessage.success(`已导出 ${count} 条记录：${fileName}`);
+  } catch (error) {
+    ElMessage.error(
+      `导出失败：${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+};
+
 const deleteRes = (event: MouseEvent, row: ResultListItem) => {
-  const Index = getDomData(event.target as Element, 'res');
-  if (!Index) {
+  const key = getDomData(event.target as Element, 'res');
+  if (!key) {
     return;
   }
   ElMessageBox.confirm('此操作将移除该中奖号码，确认删除?', '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
-    type: 'warning'
+    type: 'warning',
   })
     .then(() => {
-      if (Index) {
-        const newResult = { ...result.value };
-        newResult[row.label] = result.value[row.label].filter(
-          item => item !== Number(Index)
-        );
-        store.setResult(newResult);
-        ElMessage({
-          type: 'success',
-          message: '删除成功!'
-        });
-      }
+      // 工号与快照同步移除，避免留下无主快照
+      store.removeWinner(row.label, key);
+      ElMessage({
+        type: 'success',
+        message: '删除成功!',
+      });
     })
     .catch(() => {
       ElMessage({
         type: 'info',
-        message: '已取消'
+        message: '已取消',
       });
     });
 };
@@ -145,5 +176,10 @@ const deleteRes = (event: MouseEvent, row: ResultListItem) => {
   max-height: 70vh;
   min-height: 0;
   overflow-y: auto;
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
 }
 </style>

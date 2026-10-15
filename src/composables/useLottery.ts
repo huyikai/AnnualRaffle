@@ -7,7 +7,6 @@ import { ref, nextTick } from 'vue';
 import { annualRaffleHandler } from '@/helper/algorithm';
 import { useLotteryStore } from '@/stores/lottery';
 import type { LotteryForm } from '@/types';
-import type { UserItem } from '@/config/userLoader';
 import { getEffectiveExcludeSettings } from '@/config/lottery';
 import { LOTTERY_MODE, LOTTERY_TIMING, TAG_CANVAS_CONFIG } from '@/constants';
 import { ElMessage } from 'element-plus';
@@ -16,17 +15,27 @@ import { useAudio } from './useAudio';
 
 /**
  * 使用抽奖功能的组合式函数
+ *
+ * 排除名单不再由外部注入：旧版是构建期静态 import 的 excludedUsers，
+ * 从不落盘、用户改不了。现在从名册的 enabled=false 派生，随名册持久化。
  */
-export function useLottery(excludedUsers: UserItem[] = []) {
+export function useLottery() {
   const store = useLotteryStore();
-  const { setSpeed, reloadTagCanvas, getNormalSpeed } = useTagCanvas();
+  const {
+    setSpeed,
+    reloadTagCanvas,
+    getPreferredSpeed,
+    watchMotionPreference,
+  } = useTagCanvas();
   const { audioEnabled, enableAudio, playBeginSound } = useAudio();
 
   const running = ref(false);
   const showRes = ref(false);
-  const resArr = ref<number[]>([]);
+  const resArr = ref<string[]>([]);
   const category = ref('');
   let drawStartTime = 0;
+
+  watchMotionPreference();
 
   /**
    * 开始抽奖
@@ -48,8 +57,14 @@ export function useLottery(excludedUsers: UserItem[] = []) {
     }
 
     // 计算有效排除参数：奖项级设置优先于全局
-    const { excludeWinners: effectiveExcludeWinners, excludedPersons: effectiveExcludedPersons } =
-      getEffectiveExcludeSettings(store.config, formCategory, store.excludeWinners);
+    const {
+      excludeWinners: effectiveExcludeWinners,
+      excludedPersons: effectiveExcludedPersons,
+    } = getEffectiveExcludeSettings(
+      store.config,
+      formCategory,
+      store.excludeWinners,
+    );
 
     try {
       const resArrResult = annualRaffleHandler(
@@ -57,16 +72,16 @@ export function useLottery(excludedUsers: UserItem[] = []) {
           category: formCategory,
           num,
           excludeWinners: effectiveExcludeWinners,
-          excludedPersons: effectiveExcludedPersons
+          excludedPersons: effectiveExcludedPersons,
         },
         {
           result: store.result,
           list: store.list,
-          config: store.config
+          config: store.config,
         },
-        excludedUsers
+        store.excludedUsers,
       );
-      
+
       // 只有在抽奖成功后才更新状态
       showRes.value = false;
       setSpeed(TAG_CANVAS_CONFIG.DRAW_SPEED);
@@ -75,30 +90,22 @@ export function useLottery(excludedUsers: UserItem[] = []) {
       resArr.value = resArrResult;
 
       category.value = formCategory;
-      const currentResult = { ...store.result };
-      if (!currentResult[formCategory]) {
-        currentResult[formCategory] = [];
-      }
-      const oldRes = currentResult[formCategory] || [];
-      const data = {
-        ...currentResult,
-        [formCategory]: oldRes.concat(resArrResult)
-      };
-      store.setResult(data);
-      
+      // 同时写入工号数组与姓名快照，保证名单被改动后结果页仍可读
+      store.recordWin(formCategory, resArrResult);
+
       // 启用音频（如果尚未启用）
       if (!audioEnabled.value) {
         enableAudio();
       }
       // 播放开始音效
       playBeginSound();
-      
+
       return true;
     } catch (error) {
       console.error('抽奖失败:', error);
       // 确保状态重置
       running.value = false;
-      setSpeed(getNormalSpeed());
+      setSpeed(getPreferredSpeed());
       return false;
     }
   };
@@ -112,11 +119,11 @@ export function useLottery(excludedUsers: UserItem[] = []) {
       Date.now() - drawStartTime < LOTTERY_TIMING.MIN_DRAW_DURATION
     ) {
       ElMessage.warning(
-        `转盘至少转动${LOTTERY_TIMING.MIN_DRAW_DURATION / 1000}秒，请稍候`
+        `转盘至少转动${LOTTERY_TIMING.MIN_DRAW_DURATION / 1000}秒，请稍候`,
       );
       return;
     }
-    setSpeed(getNormalSpeed());
+    setSpeed(getPreferredSpeed());
     showRes.value = true;
     running.value = false;
     nextTick(() => {
@@ -152,6 +159,6 @@ export function useLottery(excludedUsers: UserItem[] = []) {
     startDraw,
     stopDraw,
     toggleDraw,
-    closeResult
+    closeResult,
   };
 }

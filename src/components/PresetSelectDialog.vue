@@ -4,7 +4,6 @@
     :title="title"
     :append-to-body="true"
     width="640px"
-    :z-index="10250"
     class="preset-select-dialog"
     @close="handleClose"
   >
@@ -19,7 +18,11 @@
     >
       <template #default="{ option }">
         <el-tooltip
-          :content="disabledReasons[option.key] ? `${disabledReasons[option.key]}（ID: ${option.key}）` : `ID: ${option.key}`"
+          :content="
+            disabledReasons[option.key]
+              ? `${disabledReasons[option.key]}（ID: ${option.key}）`
+              : `ID: ${option.key}`
+          "
           placement="top"
         >
           <div class="preset-transfer-item">
@@ -30,8 +33,16 @@
               @error="handleAvatarError"
             />
             <div class="preset-text">
-              <span class="preset-name" :class="{ 'preset-name-disabled': disabledReasons[option.key] }">{{ option.label }}</span>
-              <span v-if="disabledReasons[option.key]" class="preset-disabled-reason">{{ disabledReasons[option.key] }}</span>
+              <span
+                class="preset-name"
+                :class="{ 'preset-name-disabled': disabledReasons[option.key] }"
+                >{{ option.label }}</span
+              >
+              <span
+                v-if="disabledReasons[option.key]"
+                class="preset-disabled-reason"
+                >{{ disabledReasons[option.key] }}</span
+              >
             </div>
           </div>
         </el-tooltip>
@@ -44,40 +55,40 @@
 import { computed, ref, watch } from 'vue';
 import { getUserAvatarUrl, handleAvatarError } from '@/utils/avatar';
 import { canUserParticipate } from '@/helper/algorithm';
-import type { UserItem } from '@/config/userLoader';
+import type { Person } from '@/data/person';
 
 interface TransferOption {
-  key: number;
+  key: string;
   label: string;
   disabled?: boolean;
 }
 
 interface Props {
   visible: boolean;
-  modelValue: number[];
+  modelValue: string[];
   categoryKey: string;
-  userList: UserItem[];
+  userList: Person[];
   title?: string;
-  /** 用户 key → 禁选原因；有原因的人员置灰不可选，悬停及列表中展示原因 */
-  disabledReasons?: Record<number, string>;
+  /** 工号 → 禁选原因；有原因的人员置灰不可选，悬停及列表中展示原因 */
+  disabledReasons?: Record<string, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: '选择预设名单',
-  disabledReasons: () => ({})
+  disabledReasons: () => ({}),
 });
 const emit = defineEmits<{
   'update:visible': [value: boolean];
-  'update:modelValue': [value: number[]];
+  'update:modelValue': [value: string[]];
 }>();
 
 const dialogVisible = computed({
   get: () => props.visible,
-  set: (val) => emit('update:visible', val)
+  set: (val) => emit('update:visible', val),
 });
 
 // 使用本地 ref 供 el-transfer 直接绑定，避免 computed 导致的双向绑定失效
-const selectedIds = ref<number[]>([]);
+const selectedIds = ref<string[]>([]);
 
 // 弹窗打开时从 props 同步初始值
 watch(
@@ -87,7 +98,7 @@ watch(
       selectedIds.value = [...props.modelValue];
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 监听本地选中变化，同步到父组件
@@ -96,17 +107,17 @@ watch(
   (ids) => {
     emit('update:modelValue', [...ids]);
   },
-  { deep: true }
+  { deep: true },
 );
 
-// 过滤出可参与当前奖项的用户，构建 transfer 数据源（存在禁选原因的人员置灰不可选）
+// 过滤出可参与当前奖项的人员，构建 transfer 数据源（存在禁选原因的人员置灰不可选）
 const transferData = computed((): TransferOption[] => {
   return props.userList
-    .filter((user) => canUserParticipate(user, props.categoryKey))
-    .map((user) => ({
-      key: user.key,
-      label: user.name,
-      disabled: !!props.disabledReasons[user.key]
+    .filter((person) => canUserParticipate(person, props.categoryKey))
+    .map((person) => ({
+      key: person.key,
+      label: person.name,
+      disabled: !!props.disabledReasons[person.key],
     }));
 });
 
