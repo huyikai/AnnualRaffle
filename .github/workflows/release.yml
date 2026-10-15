@@ -94,6 +94,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 校验版本号一致
+        # shell 必须显式指定。GitHub 在 Windows runner 上默认用 PowerShell，
+        # 下面的 POSIX 语法会被 ParserError 拦下——这个步骤从加进来起就没带 shell，
+        # 一直没暴露只是因为此前没有任何 tag，工作流从未在 Windows 上真正跑过。
+        shell: bash
         # 四处版本号任一漂移都会导致「Release 显示 1.0.0 但包内是 0.9.0」这类问题，
         # 在打 tag 之前就拦住。
         run: |
