@@ -117,19 +117,43 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="resetConfig">确定重置</el-button>
+            <!-- 必须写成 resetConfig() 而不是 resetConfig：
+                 写成后者 Vue 会把 MouseEvent 当第一个实参传进来，
+                 type 变成事件对象，switch 全部落空，四个选项点了等于没点。 -->
+            <el-button type="primary" @click="resetConfig()"
+              >确定重置</el-button
+            >
             <el-button @click="showRemoveoptions = false">取消</el-button>
           </el-form-item>
         </el-form>
       </el-dialog>
     </div>
-    <a
-      class="btn-reset fixed bottom-2.5 right-2.5 bg-transparent border-transparent text-[#b08031] text-xs cursor-pointer"
+    <!--
+      两个入口分工明确：
+        重置结果   现场高频动作，保持一键 + 确认框，不多绕一层选项框
+        更多重置   低频且有破坏性的操作（全部/配置/名单），放进选项框
+      「重置结果」显式传 ResetType.RESULT，不依赖 removeInfo.type 的默认值——
+      否则上一次在选项框里选了别的项，这里就会重置错东西。
+    -->
+    <!-- z-index 必须挂在外层容器上：position:fixed 自身会形成层叠上下文，
+         写在子元素上的 z-index 会被困在这个上下文里，浮不过 #main。 -->
+    <div
+      class="fixed bottom-2.5 right-2.5 flex items-center gap-3"
       style="z-index: var(--ar-z-float)"
-      @click="resetConfig"
     >
-      重置
-    </a>
+      <a
+        class="btn-reset bg-transparent border-transparent text-[#b08031] text-xs cursor-pointer"
+        @click="resetConfig(ResetType.RESULT)"
+      >
+        重置结果
+      </a>
+      <a
+        class="btn-reset-more bg-transparent border-transparent text-[#b08031] text-xs cursor-pointer"
+        @click="showRemoveoptions = true"
+      >
+        更多重置
+      </a>
+    </div>
   </div>
 </template>
 
@@ -227,13 +251,44 @@ watch(showRemoveoptions, (v) => {
   }
 });
 
-const resetConfig = () => {
-  const type = removeInfo.type;
-  ElMessageBox.confirm('此操作将重置所选数据，是否继续?', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning',
-  })
+/**
+ * 确认框里明确说出要重置什么。
+ *
+ * 之前写的是「此操作将重置所选数据」——「所选」指的是选项框里的单选项，
+ * 但从「重置结果」这个一键入口进来时根本没有选项框，这句话读起来是悬空的。
+ */
+const RESET_LABEL: Record<ResetType, string> = {
+  [ResetType.ALL]: '全部数据',
+  [ResetType.CONFIG]: '抽奖配置',
+  [ResetType.LIST]: '名单',
+  [ResetType.RESULT]: '抽奖结果',
+};
+
+/**
+ * 执行重置。
+ *
+ * @param explicit 显式指定重置类型。右下角「重置结果」直接传 RESULT，
+ *   不走 removeInfo.type——那个值是选项框的临时状态，
+ *   用户在选项框里选过「重置名单」后若再点「重置结果」，不该重置名单。
+ *   选项框里的「确定重置」不传，读取当前选中项。
+ */
+const resetConfig = (explicit?: ResetType) => {
+  const type = explicit ?? removeInfo.type;
+  // 先关掉选项框再弹确认框，避免两个弹窗叠在一起。
+  // type 已经在上面取到本地变量，watch 把 removeInfo.type 复位不影响这里。
+  if (showRemoveoptions.value) showRemoveoptions.value = false;
+  // 「重置全部」不可撤销且会连导入的名单一起清掉，值得多说一句
+  const extra =
+    type === ResetType.ALL ? '，导入的名单也会一并清空，且无法撤销' : '';
+  ElMessageBox.confirm(
+    `将重置${RESET_LABEL[type]}${extra}。是否继续?`,
+    '提示',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    },
+  )
     .then(() => {
       switch (type) {
         case ResetType.ALL:
