@@ -1,0 +1,56 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "年会抽奖",
+  "version": "1.0.0",
+  "identifier": "com.annualraffle.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5188",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build:tauri"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "年会抽奖",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPCONFIG/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "年会抽奖系统",
+    "longDescription": "年会现场抽奖工具：3D 标签云、多奖项配置、人员名单管理与照片头像。",
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

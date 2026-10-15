@@ -1,0 +1,29 @@
+[package]
+name = "annual-raffle"
+version = "1.0.0"
+description = "年会抽奖系统桌面客户端"
+authors = ["AnnualRaffle"]
+license = "MIT"
+repository = ""
+edition = "2021"
+rust-version = "1.82"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "annual_raffle_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.2", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.12.3", features = ["protocol-asset"] }
+tauri-plugin-log = "2"
+# 文件/目录选择（批量导入 CSV、批量导入照片、自定义背景）
+tauri-plugin-dialog = "2"
+# 应用数据目录下的读写（头像、背景、备份快照）
+tauri-plugin-fs = "2"
